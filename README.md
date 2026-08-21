@@ -441,6 +441,28 @@ Handy can auto-discover custom Whisper GGML models placed in the `models` direct
 - The model must be a valid Whisper GGML format (`.bin` file)
 - Model name is derived from the filename (e.g., `my-custom-model.bin` → "My Custom Model")
 
+### Custom Sound Themes
+
+Handy supports custom audio feedback themes for recording start and stop sounds.
+
+**How to use:**
+
+1. Locate your **App Data Directory** (see paths in [Step 1: Find Your App Data Directory](#step-1-find-your-app-data-directory)):
+   - **macOS**: `~/Library/Application Support/com.pais.handy/`
+   - **Windows**: `C:\Users\{username}\AppData\Roaming\com.pais.handy\`
+   - **Linux**: `~/.config/com.pais.handy/`
+2. Place your custom `.wav` files directly inside the App Data Directory:
+   - `custom_start.wav` (sound played when recording starts)
+   - `custom_stop.wav` (sound played when recording stops)
+3. In Handy, enable **Debug Mode** (`Cmd+Shift+D` on macOS, `Ctrl+Shift+D` on Windows/Linux).
+4. In the Debug settings, open the **Sound Theme** selector dropdown. The app automatically checks for `custom_start.wav` and `custom_stop.wav` when the selector is opened, making the **Custom** option available immediately without requiring an application restart.
+5. Select **Custom** to use your audio files.
+
+**Notes:**
+
+- Both `custom_start.wav` and `custom_stop.wav` must be present for the "Custom" option to appear.
+- If either file is removed or missing while "Custom" is selected, Handy will automatically fall back to the default "Marimba" theme.
+
 ### Linux Startup Crashes or Instability
 
 If Handy fails to start reliably on Linux — for example, it crashes shortly after launch, never shows its window, or reports a Wayland protocol error — try the steps below in order.
