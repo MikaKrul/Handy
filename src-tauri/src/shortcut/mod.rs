@@ -612,6 +612,39 @@ pub fn apply_window_theme(app: &AppHandle, theme: Theme) {
         if let Err(e) = window.set_theme(window_theme) {
             warn!("Failed to apply window theme: {}", e);
         }
+        #[cfg(target_os = "windows")]
+        apply_windows_caption_color(&window, theme);
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn apply_windows_caption_color(window: &tauri::WebviewWindow, theme: Theme) {
+    use windows::Win32::Foundation::COLORREF;
+    use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_CAPTION_COLOR};
+
+    let effective_theme = match theme {
+        Theme::Light => tauri::Theme::Light,
+        Theme::Dark => tauri::Theme::Dark,
+        Theme::System => window.theme().unwrap_or(tauri::Theme::Dark),
+    };
+
+    let color_ref = match effective_theme {
+        tauri::Theme::Dark => COLORREF(0x00292B2C), // #2C2B29 (BGR: R=0x2C, G=0x2B, B=0x29)
+        tauri::Theme::Light => COLORREF(0x00FBFBFB), // #FBFBFB (BGR: R=0xFB, G=0xFB, B=0xFB)
+        _ => COLORREF(0x00292B2C),
+    };
+
+    if let Ok(hwnd) = window.hwnd() {
+        unsafe {
+            if let Err(e) = DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_CAPTION_COLOR,
+                &color_ref as *const COLORREF as *const std::ffi::c_void,
+                std::mem::size_of::<COLORREF>() as u32,
+            ) {
+                debug!("DwmSetWindowAttribute (DWMWA_CAPTION_COLOR) error: {}", e);
+            }
+        }
     }
 }
 

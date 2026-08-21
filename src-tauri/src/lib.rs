@@ -997,6 +997,14 @@ pub fn run(cli_args: CliArgs) {
             }
             tauri::WindowEvent::ThemeChanged(theme) => {
                 log::info!("Theme changed to: {:?}", theme);
+                // Re-apply the window theme if using System setting so title bar stays in sync
+                #[cfg(any(target_os = "windows", target_os = "macos"))]
+                {
+                    let settings = settings::get_settings(window.app_handle());
+                    if settings.theme == settings::Theme::System {
+                        shortcut::apply_window_theme(window.app_handle(), settings::Theme::System);
+                    }
+                }
                 // Re-apply the current tray state with the new theme's icon set
                 utils::refresh_tray_icon(window.app_handle());
             }
