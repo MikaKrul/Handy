@@ -118,7 +118,9 @@
         "checkFailed": "Не вдалося перевірити дозволи. Будь ласка, спробуйте ще раз.",
         "requestFailed": "Не вдалося запросити дозвіл. Будь ласка, спробуйте ще раз."
       }
-    }
+    },
+    "recommendationNotice": "Not sure what is the best pick?",
+    "recommendationLink": "Compare here"
   },
   "modelSelector": {
     "custom": "Користувацька",
@@ -227,7 +229,9 @@
       "rescan": {
         "label": "Пересканувати",
         "tooltip": "Пересканувати моделі, додані до папки моделей або кешу Hugging Face поза межами Handy"
-      }
+      },
+      "recommendationNotice": "Not sure what is the best pick?",
+      "recommendationLink": "Compare here"
     },
     "sound": {
       "title": "Звук",

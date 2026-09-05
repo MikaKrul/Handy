@@ -118,7 +118,9 @@
         "checkFailed": "権限の確認に失敗しました。もう一度お試しください。",
         "requestFailed": "権限のリクエストに失敗しました。もう一度お試しください。"
       }
-    }
+    },
+    "recommendationNotice": "どれを選ぶべきか迷っていますか？",
+    "recommendationLink": "ここで比較"
   },
   "modelSelector": {
     "custom": "カスタム",
@@ -176,7 +178,9 @@
       "rescan": {
         "label": "再スキャン",
         "tooltip": "Handy を使わずに models フォルダーまたは Hugging Face キャッシュに追加されたモデルを再スキャンします"
-      }
+      },
+      "recommendationNotice": "どれを選ぶべきか迷っていますか？",
+      "recommendationLink": "ここで比較"
     },
     "general": {
       "title": "一般",

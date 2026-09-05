@@ -118,7 +118,9 @@
         "checkFailed": "Machtigingen controleren mislukt. Probeer het opnieuw.",
         "requestFailed": "Machtiging aanvragen mislukt. Probeer het opnieuw."
       }
-    }
+    },
+    "recommendationNotice": "Niet zeker wat de beste keuze is?",
+    "recommendationLink": "Vergelijk hier"
   },
   "modelSelector": {
     "custom": "Aangepast",
@@ -227,7 +229,9 @@
         "label": "Opnieuw scannen",
         "tooltip": "Scannen naar modellen die buiten Handy om zijn toegevoegd aan de modellenmap of Hugging Face-cache"
       },
-      "noModelsMatch": "Geen modellen voldoen aan dit filter."
+      "noModelsMatch": "Geen modellen voldoen aan dit filter.",
+      "recommendationNotice": "Niet zeker wat de beste keuze is?",
+      "recommendationLink": "Vergelijk hier"
     },
     "sound": {
       "title": "Geluid",

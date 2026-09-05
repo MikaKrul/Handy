@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ExternalLink } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { ModelInfo } from "@/bindings";
 import type { ModelCardStatus } from "./ModelCard";
 import ModelCard, { isLegacySource } from "./ModelCard";
@@ -178,10 +179,25 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
 
           {downloadable.length > 0 && (
             <div className="space-y-3">
-              <div className="text-left">
+              <div className="flex items-center justify-between text-left">
                 <h2 className="text-sm font-medium text-text/60">
                   {t("onboarding.downloadModelsTitle")}
                 </h2>
+                <button
+                  type="button"
+                  onClick={() =>
+                    openUrl("https://models.handy.computer/recommendations/")
+                  }
+                  className="inline-flex items-center gap-1 text-xs text-logo-primary hover:underline transition-colors"
+                >
+                  <span>
+                    {t("onboarding.recommendationNotice")}{" "}
+                    <span className="underline font-medium">
+                      {t("onboarding.recommendationLink")}
+                    </span>
+                  </span>
+                  <ExternalLink className="w-3 h-3" />
+                </button>
               </div>
 
               {topPicks.map((model: ModelInfo) => (

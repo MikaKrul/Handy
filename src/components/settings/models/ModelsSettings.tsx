@@ -4,11 +4,13 @@ import { ask } from "@tauri-apps/plugin-dialog";
 import {
   AudioLines,
   ChevronDown,
+  ExternalLink,
   Globe,
   Languages,
   RefreshCw,
   Search,
 } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { ModelCardStatus } from "@/components/onboarding";
 import { ModelCard } from "@/components/onboarding";
 import { useModelStore } from "@/stores/modelStore";
@@ -423,9 +425,26 @@ export const ModelsSettings: React.FC = () => {
         {/* Available Models Section */}
         {availableModels.length > 0 && (
           <div className="space-y-3">
-            <h2 className="text-sm font-medium text-text/60">
-              {t("settings.models.availableModels")}
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-text/60">
+                {t("settings.models.availableModels")}
+              </h2>
+              <button
+                type="button"
+                onClick={() =>
+                  openUrl("https://models.handy.computer/recommendations/")
+                }
+                className="inline-flex items-center gap-1 text-xs text-logo-primary hover:underline transition-colors"
+              >
+                <span>
+                  {t("settings.models.recommendationNotice")}{" "}
+                  <span className="underline font-medium">
+                    {t("settings.models.recommendationLink")}
+                  </span>
+                </span>
+                <ExternalLink className="w-3 h-3" />
+              </button>
+            </div>
             {availableModels.map((model: ModelInfo) => (
               <ModelCard
                 key={model.id}

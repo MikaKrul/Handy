@@ -118,7 +118,9 @@
         "checkFailed": "檢查權限失敗，請重試",
         "requestFailed": "請求權限失敗，請重試"
       }
-    }
+    },
+    "recommendationNotice": "不確定哪個是最佳選擇？",
+    "recommendationLink": "在點此比較"
   },
   "modelSelector": {
     "custom": "自訂",
@@ -227,7 +229,9 @@
       "rescan": {
         "label": "重新掃描",
         "tooltip": "重新掃描在 Handy 之外新增到模型資料夾或 Hugging Face 快取中的模型"
-      }
+      },
+      "recommendationNotice": "不確定哪個是最佳選擇？",
+      "recommendationLink": "在點此比較"
     },
     "sound": {
       "title": "聲音",

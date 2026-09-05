@@ -118,7 +118,9 @@
         "checkFailed": "Error al verificar permisos. Por favor, inténtalo de nuevo.",
         "requestFailed": "Error al solicitar permiso. Por favor, inténtalo de nuevo."
       }
-    }
+    },
+    "recommendationNotice": "¿No estás seguro de cuál elegir?",
+    "recommendationLink": "Compara aquí"
   },
   "modelSelector": {
     "custom": "Personalizado",
@@ -176,7 +178,9 @@
       "rescan": {
         "label": "Volver a escanear",
         "tooltip": "Vuelve a escanear en busca de modelos añadidos a la carpeta de modelos o a la caché de Hugging Face fuera de Handy"
-      }
+      },
+      "recommendationNotice": "¿No estás seguro de cuál elegir?",
+      "recommendationLink": "Compara aquí"
     },
     "general": {
       "title": "General",
