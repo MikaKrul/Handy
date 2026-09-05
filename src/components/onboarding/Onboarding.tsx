@@ -151,6 +151,21 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
         <p className="text-text/70 max-w-md font-medium mx-auto">
           {t("onboarding.subtitle")}
         </p>
+        <button
+          type="button"
+          onClick={() =>
+            openUrl("https://models.handy.computer/recommendations/")
+          }
+          className="inline-flex items-center gap-1 text-xs text-logo-primary hover:underline transition-colors mt-0.5"
+        >
+          <span>
+            {t("onboarding.recommendationNotice")}{" "}
+            <span className="underline font-medium">
+              {t("onboarding.recommendationLink")}
+            </span>
+          </span>
+          <ExternalLink className="w-3 h-3" />
+        </button>
       </div>
 
       <div className="max-w-[600px] w-full mx-auto text-center flex-1 flex flex-col min-h-0">
@@ -179,25 +194,10 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
 
           {downloadable.length > 0 && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between text-left">
+              <div className="text-left">
                 <h2 className="text-sm font-medium text-text/60">
                   {t("onboarding.downloadModelsTitle")}
                 </h2>
-                <button
-                  type="button"
-                  onClick={() =>
-                    openUrl("https://models.handy.computer/recommendations/")
-                  }
-                  className="inline-flex items-center gap-1 text-xs text-logo-primary hover:underline transition-colors"
-                >
-                  <span>
-                    {t("onboarding.recommendationNotice")}{" "}
-                    <span className="underline font-medium">
-                      {t("onboarding.recommendationLink")}
-                    </span>
-                  </span>
-                  <ExternalLink className="w-3 h-3" />
-                </button>
               </div>
 
               {topPicks.map((model: ModelInfo) => (

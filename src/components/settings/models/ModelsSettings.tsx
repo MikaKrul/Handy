@@ -246,6 +246,21 @@ export const ModelsSettings: React.FC = () => {
         <p className="text-sm text-text/60">
           {t("settings.models.description")}
         </p>
+        <button
+          type="button"
+          onClick={() =>
+            openUrl("https://models.handy.computer/recommendations/")
+          }
+          className="inline-flex items-center gap-1 text-xs text-logo-primary hover:underline transition-colors mt-1.5"
+        >
+          <span>
+            {t("settings.models.recommendationNotice")}{" "}
+            <span className="underline font-medium">
+              {t("settings.models.recommendationLink")}
+            </span>
+          </span>
+          <ExternalLink className="w-3 h-3" />
+        </button>
       </div>
 
       {/* Search bar — filter the catalog by name or description */}
@@ -425,26 +440,9 @@ export const ModelsSettings: React.FC = () => {
         {/* Available Models Section */}
         {availableModels.length > 0 && (
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-text/60">
-                {t("settings.models.availableModels")}
-              </h2>
-              <button
-                type="button"
-                onClick={() =>
-                  openUrl("https://models.handy.computer/recommendations/")
-                }
-                className="inline-flex items-center gap-1 text-xs text-logo-primary hover:underline transition-colors"
-              >
-                <span>
-                  {t("settings.models.recommendationNotice")}{" "}
-                  <span className="underline font-medium">
-                    {t("settings.models.recommendationLink")}
-                  </span>
-                </span>
-                <ExternalLink className="w-3 h-3" />
-              </button>
-            </div>
+            <h2 className="text-sm font-medium text-text/60">
+              {t("settings.models.availableModels")}
+            </h2>
             {availableModels.map((model: ModelInfo) => (
               <ModelCard
                 key={model.id}
