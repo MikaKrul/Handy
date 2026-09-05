@@ -118,7 +118,9 @@
         "checkFailed": "فشل التحقق من الأذونات. يرجير المحاولة مرة أخرى.",
         "requestFailed": "فشل طلب الإذن. يرجى المحاولة مرة أخرى."
       }
-    }
+    },
+    "recommendationNotice": "Not sure what is the best pick?",
+    "recommendationLink": "Compare here"
   },
   "modelSelector": {
     "custom": "مخصص",
@@ -627,7 +629,9 @@
       "rescan": {
         "label": "إعادة الفحص",
         "tooltip": "إعادة الفحص بحثًا عن النماذج المضافة إلى مجلد النماذج أو ذاكرة Hugging Face التخزينية المؤقتة خارج Handy"
-      }
+      },
+      "recommendationNotice": "Not sure what is the best pick?",
+      "recommendationLink": "Compare here"
     }
   },
   "footer": {

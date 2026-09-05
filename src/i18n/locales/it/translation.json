@@ -118,7 +118,9 @@
         "checkFailed": "Impossibile verificare i permessi. Riprova.",
         "requestFailed": "Impossibile richiedere il permesso. Riprova."
       }
-    }
+    },
+    "recommendationNotice": "Non sai quale scegliere?",
+    "recommendationLink": "Confronta qui"
   },
   "modelSelector": {
     "custom": "Personalizzato",
@@ -176,7 +178,9 @@
       "rescan": {
         "label": "Riscansiona",
         "tooltip": "Riscansiona per trovare modelli aggiunti alla cartella dei modelli o alla cache di Hugging Face al di fuori di Handy"
-      }
+      },
+      "recommendationNotice": "Non sai quale scegliere?",
+      "recommendationLink": "Confronta qui"
     },
     "general": {
       "title": "Generale",

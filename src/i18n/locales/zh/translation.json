@@ -118,7 +118,9 @@
         "checkFailed": "检查权限失败。请重试。",
         "requestFailed": "请求权限失败。请重试。"
       }
-    }
+    },
+    "recommendationNotice": "不确定哪个是最优选择？",
+    "recommendationLink": "在点此比较"
   },
   "modelSelector": {
     "custom": "自定义",
@@ -176,7 +178,9 @@
       "rescan": {
         "label": "重新扫描",
         "tooltip": "重新扫描在 Handy 之外添加到模型文件夹或 Hugging Face 缓存中的模型"
-      }
+      },
+      "recommendationNotice": "不确定哪个是最优选择？",
+      "recommendationLink": "在点此比较"
     },
     "general": {
       "title": "通用",

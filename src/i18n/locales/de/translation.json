@@ -118,7 +118,9 @@
         "checkFailed": "Berechtigungsprüfung fehlgeschlagen. Bitte erneut versuchen.",
         "requestFailed": "Berechtigungsanfrage fehlgeschlagen. Bitte erneut versuchen."
       }
-    }
+    },
+    "recommendationNotice": "Nicht sicher, was die beste Wahl ist?",
+    "recommendationLink": "Hier vergleichen"
   },
   "modelSelector": {
     "custom": "Benutzerdefiniert",
@@ -176,7 +178,9 @@
       "rescan": {
         "label": "Neu scannen",
         "tooltip": "Erneut nach Modellen scannen, die außerhalb von Handy zum Modellordner oder Hugging-Face-Cache hinzugefügt wurden"
-      }
+      },
+      "recommendationNotice": "Nicht sicher, was die beste Wahl ist?",
+      "recommendationLink": "Hier vergleichen"
     },
     "general": {
       "title": "Allgemein",

@@ -118,7 +118,9 @@
         "checkFailed": "Erro ao verificar permissões. Por favor, tente novamente.",
         "requestFailed": "Erro ao solicitar permissão. Por favor, tente novamente."
       }
-    }
+    },
+    "recommendationNotice": "Não tem certeza de qual escolher?",
+    "recommendationLink": "Compare aqui"
   },
   "modelSelector": {
     "custom": "Personalizado",
@@ -227,7 +229,9 @@
       "rescan": {
         "label": "Reescanear",
         "tooltip": "Reescaneia em busca de modelos adicionados à pasta de modelos ou ao cache do Hugging Face fora do Handy"
-      }
+      },
+      "recommendationNotice": "Não tem certeza de qual escolher?",
+      "recommendationLink": "Compare aqui"
     },
     "sound": {
       "title": "Som",

@@ -118,7 +118,9 @@
         "checkFailed": "Échec de la vérification des autorisations. Veuillez réessayer.",
         "requestFailed": "Échec de la demande d'autorisation. Veuillez réessayer."
       }
-    }
+    },
+    "recommendationNotice": "Vous ne savez pas quel choix faire ?",
+    "recommendationLink": "Comparez ici"
   },
   "modelSelector": {
     "custom": "Personnalisé",
@@ -176,7 +178,9 @@
       "rescan": {
         "label": "Réanalyser",
         "tooltip": "Réanalyser pour détecter les modèles ajoutés au dossier des modèles ou au cache Hugging Face en dehors de Handy"
-      }
+      },
+      "recommendationNotice": "Vous ne savez pas quel choix faire ?",
+      "recommendationLink": "Comparez ici"
     },
     "general": {
       "title": "Général",

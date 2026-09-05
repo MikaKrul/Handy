@@ -118,7 +118,9 @@
         "checkFailed": "Không thể kiểm tra quyền. Vui lòng thử lại.",
         "requestFailed": "Không thể yêu cầu quyền. Vui lòng thử lại."
       }
-    }
+    },
+    "recommendationNotice": "Not sure what is the best pick?",
+    "recommendationLink": "Compare here"
   },
   "modelSelector": {
     "custom": "Tùy chỉnh",
@@ -176,7 +178,9 @@
       "rescan": {
         "label": "Quét lại",
         "tooltip": "Quét lại các mô hình được thêm vào thư mục mô hình hoặc bộ nhớ đệm Hugging Face bên ngoài Handy"
-      }
+      },
+      "recommendationNotice": "Not sure what is the best pick?",
+      "recommendationLink": "Compare here"
     },
     "general": {
       "title": "Chung",

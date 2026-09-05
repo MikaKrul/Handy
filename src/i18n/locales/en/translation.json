@@ -118,7 +118,9 @@
         "checkFailed": "Failed to check permissions. Please try again.",
         "requestFailed": "Failed to request permission. Please try again."
       }
-    }
+    },
+    "recommendationNotice": "Not sure what is the best pick?",
+    "recommendationLink": "Compare here"
   },
   "modelSelector": {
     "custom": "Custom",
@@ -227,7 +229,9 @@
         "label": "Rescan",
         "tooltip": "Rescan for models added to the models folder or Hugging Face cache outside Handy"
       },
-      "noModelsMatch": "No models match this filter."
+      "noModelsMatch": "No models match this filter.",
+      "recommendationNotice": "Not sure what is the best pick?",
+      "recommendationLink": "Compare here"
     },
     "sound": {
       "title": "Sound",

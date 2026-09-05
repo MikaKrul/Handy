@@ -118,7 +118,9 @@
         "checkFailed": "Kunne ikke tjekke tilladelser. Prøv igen.",
         "requestFailed": "Kunne ikke anmode om tilladelse. Prøv igen."
       }
-    }
+    },
+    "recommendationNotice": "Not sure what is the best pick?",
+    "recommendationLink": "Compare here"
   },
   "modelSelector": {
     "custom": "Brugerdefineret",
@@ -227,7 +229,9 @@
         "label": "Søg igen",
         "tooltip": "Søg igen efter modeller, der er tilføjet til modelmappen eller Hugging Face-cachen uden for Handy"
       },
-      "noModelsMatch": "Ingen modeller matcher dette filter."
+      "noModelsMatch": "Ingen modeller matcher dette filter.",
+      "recommendationNotice": "Not sure what is the best pick?",
+      "recommendationLink": "Compare here"
     },
     "sound": {
       "title": "Lyd",
