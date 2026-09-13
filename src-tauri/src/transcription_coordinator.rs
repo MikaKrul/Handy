@@ -172,6 +172,7 @@ enum Command {
     Input(InputEvent),
     Cancel { recording_was_active: bool },
     ProcessingFinished,
+    AutoStop,
 }
 
 /// Decide whether a key-up should be deferred (so auto-repeat can cancel it)
@@ -458,6 +459,19 @@ impl CoordinatorState {
         None
     }
 
+    fn on_auto_stop(&mut self) -> Option<Effect> {
+        if let Stage::Recording(binding_id) = &self.stage {
+            debug!("Auto-stop triggered for binding '{binding_id}'");
+            let binding_id = binding_id.clone();
+            self.pending_release = None;
+            self.pending_press = None;
+            Some(self.begin_processing(binding_id, "auto_stop".to_string()))
+        } else {
+            debug!("Auto-stop ignored: not in Recording stage");
+            None
+        }
+    }
+
     fn on_cancel(&mut self, recording_was_active: bool) {
         self.pending_release = None;
         // An explicit cancel abandons any remembered start too — the user
@@ -579,6 +593,11 @@ impl TranscriptionCoordinator {
                                 run_effect(&app, &mut state, effect);
                             }
                         }
+                        Command::AutoStop => {
+                            if let Some(effect) = state.on_auto_stop() {
+                                run_effect(&app, &mut state, effect);
+                            }
+                        }
                     }
                 }
                 debug!("Transcription coordinator exited");
@@ -666,6 +685,12 @@ impl TranscriptionCoordinator {
             warn!("Transcription coordinator channel closed");
         }
     }
+
+    pub fn notify_auto_stop(&self) {
+        if self.tx.send(Command::AutoStop).is_err() {
+            warn!("Transcription coordinator channel closed");
+        }
+    }
 }
 
 fn run_effect(app: &AppHandle, state: &mut CoordinatorState, effect: Effect) {
@@ -712,6 +737,38 @@ fn stop(app: &AppHandle, binding_id: &str, hotkey_string: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn auto_stop_while_recording_triggers_processing_stop() {
+        let mut state = CoordinatorState::new();
+        let now = Instant::now();
+
+        // Start recording
+        let effect = state.on_input(ptt_input(true), now);
+        assert!(matches!(effect, Some(Effect::Start { .. })));
+        assert_eq!(state.stage, Stage::Recording(BINDING.to_string()));
+
+        // Trigger auto stop
+        let effect = state.on_auto_stop();
+        assert_eq!(
+            effect,
+            Some(Effect::Stop {
+                binding_id: BINDING.to_string(),
+                hotkey_string: "auto_stop".to_string()
+            })
+        );
+        assert_eq!(state.stage, Stage::Processing);
+    }
+
+    #[test]
+    fn auto_stop_while_idle_is_ignored() {
+        let mut state = CoordinatorState::new();
+        assert_eq!(state.stage, Stage::Idle);
+
+        let effect = state.on_auto_stop();
+        assert!(effect.is_none());
+        assert_eq!(state.stage, Stage::Idle);
+    }
 
     #[test]
     fn push_to_talk_release_while_recording_defers_release() {

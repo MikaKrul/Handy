@@ -398,6 +398,12 @@
       "fillerWordRemoval": {
         "title": "Loại bỏ từ đệm",
         "description": "Loại bỏ các từ ngập ngừng phổ biến khỏi bản chép lời. Tắt để giữ lại các từ này."
+      },
+      "autoStopSilence": {
+        "title": "Auto-Stop on Silence",
+        "description": "Automatically end recording when speech ceases for the configured duration (uses Voice Activity Detection).",
+        "durationTitle": "Silence Duration",
+        "durationDescription": "How long to wait after speech stops before automatically stopping the recording."
       }
     },
     "postProcessing": {

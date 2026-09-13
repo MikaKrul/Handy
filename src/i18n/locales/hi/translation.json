@@ -398,6 +398,12 @@
       "fillerWordRemoval": {
         "title": "फिलर शब्द हटाएं",
         "description": "ट्रांसक्रिप्शन से आम हिचकिचाहट वाले शब्द हटाता है। उन्हें बनाए रखने के लिए इसे बंद करें।"
+      },
+      "autoStopSilence": {
+        "title": "Auto-Stop on Silence",
+        "description": "Automatically end recording when speech ceases for the configured duration (uses Voice Activity Detection).",
+        "durationTitle": "Silence Duration",
+        "durationDescription": "How long to wait after speech stops before automatically stopping the recording."
       }
     },
     "postProcessing": {

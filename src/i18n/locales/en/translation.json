@@ -270,6 +270,12 @@
         "label": "Experimental Features",
         "description": "Enable experimental features that are still in development."
       },
+      "autoStopSilence": {
+        "title": "Auto-Stop on Silence",
+        "description": "Automatically end recording when speech ceases for the configured duration (uses Voice Activity Detection).",
+        "durationTitle": "Silence Duration",
+        "durationDescription": "How long to wait after speech stops before automatically stopping the recording."
+      },
       "lazyStreamClose": {
         "label": "Keep Mic Open Between Transcriptions",
         "description": "Keeps the microphone stream open for 30 seconds after recording stops, reducing latency for back-to-back transcriptions. May degrade Bluetooth audio quality while active."

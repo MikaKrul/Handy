@@ -1,6 +1,7 @@
 use super::{
     is_microphone_access_denied, is_no_input_device_error, run_consumer, AudioRecorder,
-    CaptureProcessor, CaptureTransportState, ChunkDisposition, Cmd, VadConfig, VadPolicy,
+    AutoStopConfig, CaptureProcessor, CaptureTransportState, ChunkDisposition, Cmd, VadConfig,
+    VadPolicy,
 };
 use crate::audio_toolkit::vad::{VadFrame, VoiceActivityDetector};
 use rtrb::RingBuffer;
@@ -58,11 +59,12 @@ fn resampler_frame_size_follows_the_vad_backend() {
         Some(Arc::new(move |frame: &[f32]| {
             observed.lock().unwrap().push(frame.len())
         })),
+        None,
         Instant::now(),
     );
 
     let (ready_tx, _ready_rx) = mpsc::channel();
-    processor.begin_recording(VadPolicy::Offline, ready_tx);
+    processor.begin_recording(VadPolicy::Offline, AutoStopConfig::default(), ready_tx);
     processor.process_raw_chunk(&[0.0; 1024], ChunkDisposition::Capture);
     let samples = processor.finish_recording();
 
@@ -72,7 +74,7 @@ fn resampler_frame_size_follows_the_vad_backend() {
 
 #[test]
 fn idle_chunks_are_discarded_without_reaching_the_recording() {
-    let mut processor = CaptureProcessor::new(16_000, None, None, None, Instant::now());
+    let mut processor = CaptureProcessor::new(16_000, None, None, None, None, Instant::now());
     processor.process_raw_chunk(&[1.0; 480], ChunkDisposition::Discard);
     assert!(processor.finish_recording().is_empty());
 }
@@ -84,7 +86,7 @@ fn shutdown_is_processed_without_audio_samples() {
     let (done_tx, done_rx) = mpsc::channel();
     let worker = thread::spawn(move || {
         run_consumer(
-            CaptureProcessor::new(48_000, None, None, None, Instant::now()),
+            CaptureProcessor::new(48_000, None, None, None, None, Instant::now()),
             consumer,
             cmd_rx,
             Arc::new(CaptureTransportState::default()),
@@ -248,6 +250,7 @@ fn repeated_start_stop_cycles_resume_capture_without_leaking_samples() {
             Some(Arc::new(move |frame: &[f32]| {
                 streamed_cb.lock().unwrap().extend_from_slice(frame)
             })),
+            None,
             Instant::now(),
         );
         run_consumer(
@@ -270,7 +273,12 @@ fn repeated_start_stop_cycles_resume_capture_without_leaking_samples() {
     let first_input = [0.25f32, -0.5, 1.0];
     let (ready_tx, ready_rx) = mpsc::channel();
     cmd_tx
-        .send(Cmd::Start(VadPolicy::Disabled, Instant::now(), ready_tx))
+        .send(Cmd::Start(
+            VadPolicy::Disabled,
+            AutoStopConfig::default(),
+            Instant::now(),
+            ready_tx,
+        ))
         .expect("first start");
     AudioRecorder::write_input_to_ring(&first_input, 1, None, &mut producer, &transport);
     ready_rx
@@ -305,7 +313,12 @@ fn repeated_start_stop_cycles_resume_capture_without_leaking_samples() {
     let second_input = [0.75f32, -0.25, 0.5];
     let (ready_tx, ready_rx) = mpsc::channel();
     cmd_tx
-        .send(Cmd::Start(VadPolicy::Disabled, Instant::now(), ready_tx))
+        .send(Cmd::Start(
+            VadPolicy::Disabled,
+            AutoStopConfig::default(),
+            Instant::now(),
+            ready_tx,
+        ))
         .expect("second start");
     AudioRecorder::write_input_to_ring(&second_input, 1, None, &mut producer, &transport);
     ready_rx
@@ -356,7 +369,7 @@ fn missing_callback_at_stop_marks_stream_for_rebuild_and_returns_samples() {
     let worker_transport = Arc::clone(&transport);
     let worker = thread::spawn(move || {
         run_consumer(
-            CaptureProcessor::new(16_000, None, None, None, Instant::now()),
+            CaptureProcessor::new(16_000, None, None, None, None, Instant::now()),
             consumer,
             cmd_rx,
             worker_transport,
@@ -366,7 +379,12 @@ fn missing_callback_at_stop_marks_stream_for_rebuild_and_returns_samples() {
 
     let (ready_tx, _ready_rx) = mpsc::channel();
     cmd_tx
-        .send(Cmd::Start(VadPolicy::Disabled, Instant::now(), ready_tx))
+        .send(Cmd::Start(
+            VadPolicy::Disabled,
+            AutoStopConfig::default(),
+            Instant::now(),
+            ready_tx,
+        ))
         .expect("start");
     let (reply_tx, reply_rx) = mpsc::channel();
     cmd_tx.send(Cmd::Stop(reply_tx)).expect("stop");
@@ -397,6 +415,179 @@ fn detects_windows_error_code() {
 #[test]
 fn does_not_match_unrelated_errors() {
     assert!(!is_microphone_access_denied("device not found"));
+}
+
+struct ScriptedVad {
+    script: std::collections::VecDeque<bool>,
+}
+
+impl VoiceActivityDetector for ScriptedVad {
+    fn push_frame<'a>(&'a mut self, frame: &'a [f32]) -> anyhow::Result<VadFrame<'a>> {
+        let is_voice = self.script.pop_front().unwrap_or(false);
+        if is_voice {
+            Ok(VadFrame::Speech(frame))
+        } else {
+            Ok(VadFrame::Noise)
+        }
+    }
+
+    fn frame_samples(&self) -> usize {
+        480
+    }
+}
+
+#[test]
+fn auto_stop_does_not_trigger_before_speech_is_detected() {
+    let vad = VadConfig {
+        detector: Arc::new(Mutex::new(Box::new(ScriptedVad {
+            script: [false; 20].into_iter().collect(),
+        }))),
+        frame_samples: 480,
+        offline_hangover_frames: 0,
+        streaming_hangover_frames: 0,
+    };
+    let triggered = Arc::new(AtomicBool::new(false));
+    let triggered_cb = Arc::clone(&triggered);
+    let mut processor = CaptureProcessor::new(
+        16_000,
+        Some(vad),
+        None,
+        None,
+        Some(Arc::new(move || {
+            triggered_cb.store(true, Ordering::Release);
+        })),
+        Instant::now(),
+    );
+
+    let (ready_tx, _ready_rx) = mpsc::channel();
+    let auto_stop = AutoStopConfig {
+        enabled: true,
+        duration: Duration::from_millis(100),
+    };
+    processor.begin_recording(VadPolicy::Offline, auto_stop, ready_tx);
+
+    // Feed 500ms of silence
+    processor.process_raw_chunk(&[0.0; 8000], ChunkDisposition::Capture);
+
+    assert!(!triggered.load(Ordering::Acquire));
+}
+
+#[test]
+fn auto_stop_disabled_never_triggers() {
+    let mut script = std::collections::VecDeque::new();
+    script.push_back(true);
+    for _ in 0..10 {
+        script.push_back(false);
+    }
+    let vad = VadConfig {
+        detector: Arc::new(Mutex::new(Box::new(ScriptedVad { script }))),
+        frame_samples: 480,
+        offline_hangover_frames: 0,
+        streaming_hangover_frames: 0,
+    };
+    let triggered = Arc::new(AtomicBool::new(false));
+    let triggered_cb = Arc::clone(&triggered);
+    let mut processor = CaptureProcessor::new(
+        16_000,
+        Some(vad),
+        None,
+        None,
+        Some(Arc::new(move || {
+            triggered_cb.store(true, Ordering::Release);
+        })),
+        Instant::now(),
+    );
+
+    let (ready_tx, _ready_rx) = mpsc::channel();
+    let auto_stop = AutoStopConfig {
+        enabled: false,
+        duration: Duration::from_millis(100),
+    };
+    processor.begin_recording(VadPolicy::Offline, auto_stop, ready_tx);
+
+    // Feed speech frame + 120ms silence
+    processor.process_raw_chunk(&[0.0; 480 * 5], ChunkDisposition::Capture);
+
+    assert!(!triggered.load(Ordering::Acquire));
+}
+
+#[test]
+fn auto_stop_triggers_after_speech_followed_by_configured_silence() {
+    let mut script = std::collections::VecDeque::new();
+    script.push_back(true);
+    for _ in 0..10 {
+        script.push_back(false);
+    }
+    let vad = VadConfig {
+        detector: Arc::new(Mutex::new(Box::new(ScriptedVad { script }))),
+        frame_samples: 480,
+        offline_hangover_frames: 0,
+        streaming_hangover_frames: 0,
+    };
+    let triggered = Arc::new(AtomicBool::new(false));
+    let triggered_cb = Arc::clone(&triggered);
+    let mut processor = CaptureProcessor::new(
+        16_000,
+        Some(vad),
+        None,
+        None,
+        Some(Arc::new(move || {
+            triggered_cb.store(true, Ordering::Release);
+        })),
+        Instant::now(),
+    );
+
+    let (ready_tx, _ready_rx) = mpsc::channel();
+    let auto_stop = AutoStopConfig {
+        enabled: true,
+        duration: Duration::from_millis(100),
+    };
+    processor.begin_recording(VadPolicy::Offline, auto_stop, ready_tx);
+
+    // Feed speech frame (480 samples = 30ms) + 120ms silence (4 frames)
+    processor.process_raw_chunk(&[0.0; 480 * 5], ChunkDisposition::Capture);
+
+    assert!(triggered.load(Ordering::Acquire));
+}
+
+#[test]
+fn auto_stop_silence_timer_resets_if_speech_resumes() {
+    let script = vec![true, false, false, true, false, false, false, false]
+        .into_iter()
+        .collect();
+    let vad = VadConfig {
+        detector: Arc::new(Mutex::new(Box::new(ScriptedVad { script }))),
+        frame_samples: 480,
+        offline_hangover_frames: 0,
+        streaming_hangover_frames: 0,
+    };
+    let triggered = Arc::new(AtomicBool::new(false));
+    let triggered_cb = Arc::clone(&triggered);
+    let mut processor = CaptureProcessor::new(
+        16_000,
+        Some(vad),
+        None,
+        None,
+        Some(Arc::new(move || {
+            triggered_cb.store(true, Ordering::Release);
+        })),
+        Instant::now(),
+    );
+
+    let (ready_tx, _ready_rx) = mpsc::channel();
+    let auto_stop = AutoStopConfig {
+        enabled: true,
+        duration: Duration::from_millis(100),
+    };
+    processor.begin_recording(VadPolicy::Offline, auto_stop, ready_tx);
+
+    // Chunk 1: Speech + 2x Noise (60ms silence < 100ms threshold)
+    processor.process_raw_chunk(&[0.0; 480 * 3], ChunkDisposition::Capture);
+    assert!(!triggered.load(Ordering::Acquire));
+
+    // Chunk 2: Speech + 4x Noise (120ms > 100ms threshold)
+    processor.process_raw_chunk(&[0.0; 480 * 5], ChunkDisposition::Capture);
+    assert!(triggered.load(Ordering::Acquire));
 }
 
 #[test]

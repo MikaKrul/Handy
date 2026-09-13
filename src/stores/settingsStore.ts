@@ -171,6 +171,10 @@ const settingUpdaters: {
     commands.changeLazyStreamCloseSetting(value as boolean),
   overlay_style: (value) => commands.changeOverlayStyleSetting(value as string),
   vad_enabled: (value) => commands.changeVadEnabledSetting(value as boolean),
+  auto_stop_silence_enabled: (value) =>
+    commands.changeAutoStopSilenceEnabledSetting(value as boolean),
+  auto_stop_silence_duration_ms: (value) =>
+    commands.changeAutoStopSilenceDurationMsSetting(value as number),
   vad_backend: async (value) => {
     const result = await commands.changeVadBackendSetting(value as VadBackend);
     if (result.status === "error") {

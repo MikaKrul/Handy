@@ -398,6 +398,12 @@
       "fillerWordRemoval": {
         "title": "군더더기 표현 제거",
         "description": "전사에서 흔한 머뭇거림 표현을 제거합니다. 그대로 두려면 이 옵션을 끄세요."
+      },
+      "autoStopSilence": {
+        "title": "Auto-Stop on Silence",
+        "description": "Automatically end recording when speech ceases for the configured duration (uses Voice Activity Detection).",
+        "durationTitle": "Silence Duration",
+        "durationDescription": "How long to wait after speech stops before automatically stopping the recording."
       }
     },
     "postProcessing": {

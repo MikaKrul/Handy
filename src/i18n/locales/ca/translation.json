@@ -398,6 +398,12 @@
       "fillerWordRemoval": {
         "title": "Elimina les falques",
         "description": "Elimina les expressions de vacil·lació habituals de les transcripcions. Desactiveu aquesta opció per conservar-les."
+      },
+      "autoStopSilence": {
+        "title": "Auto-Stop on Silence",
+        "description": "Automatically end recording when speech ceases for the configured duration (uses Voice Activity Detection).",
+        "durationTitle": "Silence Duration",
+        "durationDescription": "How long to wait after speech stops before automatically stopping the recording."
       }
     },
     "postProcessing": {

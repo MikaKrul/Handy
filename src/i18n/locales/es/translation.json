@@ -398,6 +398,12 @@
       "fillerWordRemoval": {
         "title": "Eliminar muletillas",
         "description": "Elimina las muletillas más comunes de las transcripciones. Desactívalo para conservarlas."
+      },
+      "autoStopSilence": {
+        "title": "Auto-Stop on Silence",
+        "description": "Automatically end recording when speech ceases for the configured duration (uses Voice Activity Detection).",
+        "durationTitle": "Silence Duration",
+        "durationDescription": "How long to wait after speech stops before automatically stopping the recording."
       }
     },
     "postProcessing": {
