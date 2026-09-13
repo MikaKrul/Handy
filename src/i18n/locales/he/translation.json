@@ -398,6 +398,12 @@
       "fillerWordRemoval": {
         "title": "הסרת מילות מילוי",
         "description": "מסיר מילות היסוס נפוצות מתמלולים. השבת כדי להשאיר אותן."
+      },
+      "autoStopSilence": {
+        "title": "Auto-Stop on Silence",
+        "description": "Automatically end recording when speech ceases for the configured duration.",
+        "durationTitle": "Silence Duration",
+        "durationDescription": "How long to wait after speech stops before automatically stopping the recording."
       }
     },
     "postProcessing": {

@@ -398,6 +398,12 @@
       "fillerWordRemoval": {
         "title": "Opvulwoorden verwijderen",
         "description": "Verwijdert veelvoorkomende aarzelwoorden uit transcripties. Schakel dit uit om ze te behouden."
+      },
+      "autoStopSilence": {
+        "title": "Auto-stop na stilte",
+        "description": "Stop de opname automatisch wanneer het spreken stopt gedurende de ingestelde tijd.",
+        "durationTitle": "Stilteperiode",
+        "durationDescription": "Hoe lang te wachten nadat het spreken stopt voordat de opname automatisch wordt beëindigd."
       }
     },
     "postProcessing": {
