@@ -346,6 +346,14 @@ fn create_audio_recorder(
             move |frame| {
                 router.feed(frame);
             }
+        })
+        .with_auto_stop_callback({
+            let app_handle = app_handle.clone();
+            move || {
+                if let Some(coordinator) = app_handle.try_state::<crate::TranscriptionCoordinator>() {
+                    coordinator.notify_auto_stop();
+                }
+            }
         });
 
     Ok(recorder)
@@ -817,6 +825,7 @@ impl AudioRecordingManager {
         &self,
         binding_id: &str,
         vad_policy: VadPolicy,
+        auto_stop_config: crate::audio_toolkit::AutoStopConfig,
     ) -> Result<RecordingReadiness, String> {
         let mut state = self.state.lock().unwrap();
 
@@ -836,7 +845,7 @@ impl AudioRecordingManager {
             }
 
             if let Some(rec) = self.recorder.lock().unwrap().as_ref() {
-                match rec.start(vad_policy) {
+                match rec.start(vad_policy, auto_stop_config) {
                     Ok(receiver) => {
                         let generation = self.capture_generation.fetch_add(1, Ordering::AcqRel) + 1;
                         *self.is_recording.lock().unwrap() = true;

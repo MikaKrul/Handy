@@ -513,6 +513,12 @@ impl ShortcutAction for TranscribeAction {
         } else {
             VadPolicy::Offline
         };
+
+        let auto_stop_config = crate::audio_toolkit::AutoStopConfig {
+            enabled: settings.experimental_enabled && settings.auto_stop_silence_enabled,
+            duration: Duration::from_millis(settings.auto_stop_silence_duration_ms),
+        };
+
         if model_supports_streaming {
             tm.start_stream();
         }
@@ -540,7 +546,7 @@ impl ShortcutAction for TranscribeAction {
 
         let mut recording_error: Option<String> = None;
         let recording_start_time = Instant::now();
-        match rm.try_start_recording(&binding_id, vad_policy) {
+        match rm.try_start_recording(&binding_id, vad_policy, auto_stop_config) {
             Ok(readiness) => {
                 debug!(
                     "Recording request accepted in {:?}; waiting for first microphone samples",

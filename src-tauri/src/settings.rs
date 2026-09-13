@@ -514,6 +514,14 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
+    #[serde(default)]
+    pub auto_stop_silence_enabled: bool,
+    #[serde(default = "default_auto_stop_silence_duration_ms")]
+    pub auto_stop_silence_duration_ms: u64,
+}
+
+fn default_auto_stop_silence_duration_ms() -> u64 {
+    3000
 }
 
 fn default_model() -> String {
@@ -970,6 +978,8 @@ pub fn get_default_settings() -> AppSettings {
         vad_enabled: default_vad_enabled(),
         vad_backend: VadBackend::default(),
         overlay_style: default_overlay_style(),
+        auto_stop_silence_enabled: false,
+        auto_stop_silence_duration_ms: default_auto_stop_silence_duration_ms(),
     }
 }
 
