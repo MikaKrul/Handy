@@ -506,17 +506,17 @@ impl ShortcutAction for TranscribeAction {
             .as_ref()
             .map(|m| m.supports_streaming)
             .unwrap_or(false);
-        let vad_policy = if !settings.vad_enabled {
+        let auto_stop_config = crate::audio_toolkit::AutoStopConfig {
+            enabled: settings.experimental_enabled && settings.auto_stop_silence_enabled,
+            duration: Duration::from_millis(settings.auto_stop_silence_duration_ms),
+        };
+
+        let vad_policy = if !settings.vad_enabled && !auto_stop_config.enabled {
             VadPolicy::Disabled
         } else if model_supports_streaming {
             VadPolicy::Streaming
         } else {
             VadPolicy::Offline
-        };
-
-        let auto_stop_config = crate::audio_toolkit::AutoStopConfig {
-            enabled: settings.experimental_enabled && settings.auto_stop_silence_enabled,
-            duration: Duration::from_millis(settings.auto_stop_silence_duration_ms),
         };
 
         if model_supports_streaming {

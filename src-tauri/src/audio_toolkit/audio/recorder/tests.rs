@@ -473,6 +473,45 @@ fn auto_stop_does_not_trigger_before_speech_is_detected() {
 }
 
 #[test]
+fn auto_stop_disabled_never_triggers() {
+    let mut script = std::collections::VecDeque::new();
+    script.push_back(true);
+    for _ in 0..10 {
+        script.push_back(false);
+    }
+    let vad = VadConfig {
+        detector: Arc::new(Mutex::new(Box::new(ScriptedVad { script }))),
+        frame_samples: 480,
+        offline_hangover_frames: 0,
+        streaming_hangover_frames: 0,
+    };
+    let triggered = Arc::new(AtomicBool::new(false));
+    let triggered_cb = Arc::clone(&triggered);
+    let mut processor = CaptureProcessor::new(
+        16_000,
+        Some(vad),
+        None,
+        None,
+        Some(Arc::new(move || {
+            triggered_cb.store(true, Ordering::Release);
+        })),
+        Instant::now(),
+    );
+
+    let (ready_tx, _ready_rx) = mpsc::channel();
+    let auto_stop = AutoStopConfig {
+        enabled: false,
+        duration: Duration::from_millis(100),
+    };
+    processor.begin_recording(VadPolicy::Offline, auto_stop, ready_tx);
+
+    // Feed speech frame + 120ms silence
+    processor.process_raw_chunk(&[0.0; 480 * 5], ChunkDisposition::Capture);
+
+    assert!(!triggered.load(Ordering::Acquire));
+}
+
+#[test]
 fn auto_stop_triggers_after_speech_followed_by_configured_silence() {
     let mut script = std::collections::VecDeque::new();
     script.push_back(true);

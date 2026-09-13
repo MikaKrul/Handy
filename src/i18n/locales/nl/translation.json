@@ -401,7 +401,7 @@
       },
       "autoStopSilence": {
         "title": "Auto-stop na stilte",
-        "description": "Stop de opname automatisch wanneer het spreken stopt gedurende de ingestelde tijd.",
+        "description": "Stop de opname automatisch wanneer het spreken stopt gedurende de ingestelde tijd (gebruikt VAD).",
         "durationTitle": "Stilteperiode",
         "durationDescription": "Hoe lang te wachten nadat het spreken stopt voordat de opname automatisch wordt beëindigd."
       }
