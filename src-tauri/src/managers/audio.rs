@@ -350,7 +350,8 @@ fn create_audio_recorder(
         .with_auto_stop_callback({
             let app_handle = app_handle.clone();
             move || {
-                if let Some(coordinator) = app_handle.try_state::<crate::TranscriptionCoordinator>() {
+                if let Some(coordinator) = app_handle.try_state::<crate::TranscriptionCoordinator>()
+                {
                     coordinator.notify_auto_stop();
                 }
             }

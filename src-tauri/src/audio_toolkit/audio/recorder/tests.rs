@@ -59,12 +59,12 @@ fn resampler_frame_size_follows_the_vad_backend() {
         Some(Arc::new(move |frame: &[f32]| {
             observed.lock().unwrap().push(frame.len())
         })),
-    None,
+        None,
         Instant::now(),
     );
 
     let (ready_tx, _ready_rx) = mpsc::channel();
-processor.begin_recording(VadPolicy::Offline, AutoStopConfig::default(), ready_tx);
+    processor.begin_recording(VadPolicy::Offline, AutoStopConfig::default(), ready_tx);
     processor.process_raw_chunk(&[0.0; 1024], ChunkDisposition::Capture);
     let samples = processor.finish_recording();
 

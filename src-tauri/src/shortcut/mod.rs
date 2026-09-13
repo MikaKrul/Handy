@@ -538,7 +538,10 @@ pub fn change_shortcut_activation_setting(
 
 #[tauri::command]
 #[specta::specta]
-pub fn change_auto_stop_silence_enabled_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
+pub fn change_auto_stop_silence_enabled_setting(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
     let mut settings = settings::get_settings(&app);
     settings.auto_stop_silence_enabled = enabled;
     settings::write_settings(&app, settings);
