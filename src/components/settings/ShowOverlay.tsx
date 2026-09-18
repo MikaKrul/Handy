@@ -1,7 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { Dropdown } from "../ui/Dropdown";
-import { Slider } from "../ui/Slider";
 import { SettingContainer } from "../ui/SettingContainer";
 import { useSettings } from "../../hooks/useSettings";
 import type { OverlayPosition, OverlayStyle } from "@/bindings";
@@ -49,8 +48,6 @@ export const ShowOverlay: React.FC<ShowOverlayProps> = React.memo(
     const selectedPosition: OverlayPosition =
       getSetting("overlay_position") === "top" ? "top" : "bottom";
 
-    const glowIntensity = getSetting("screen_glow_intensity") ?? 0.5;
-
     return (
       <>
         <SettingContainer
@@ -70,41 +67,21 @@ export const ShowOverlay: React.FC<ShowOverlayProps> = React.memo(
         </SettingContainer>
 
         {selectedStyle !== "none" && (
-          <>
-            <SettingContainer
-              title={t("settings.advanced.overlay.position.title")}
-              description={t("settings.advanced.overlay.position.description")}
-              descriptionMode={descriptionMode}
-              grouped={grouped}
-            >
-              <Dropdown
-                options={positionOptions}
-                selectedValue={selectedPosition}
-                onSelect={(value) =>
-                  updateSetting("overlay_position", value as OverlayPosition)
-                }
-                disabled={isUpdating("overlay_position")}
-              />
-            </SettingContainer>
-
-            <Slider
-              value={glowIntensity}
-              onChange={(value: number) =>
-                updateSetting("screen_glow_intensity", value)
+          <SettingContainer
+            title={t("settings.advanced.overlay.position.title")}
+            description={t("settings.advanced.overlay.position.description")}
+            descriptionMode={descriptionMode}
+            grouped={grouped}
+          >
+            <Dropdown
+              options={positionOptions}
+              selectedValue={selectedPosition}
+              onSelect={(value) =>
+                updateSetting("overlay_position", value as OverlayPosition)
               }
-              min={0}
-              max={1}
-              step={0.05}
-              label={t("settings.advanced.overlay.glowIntensity.title")}
-              description={t(
-                "settings.advanced.overlay.glowIntensity.description",
-              )}
-              descriptionMode={descriptionMode}
-              grouped={grouped}
-              formatValue={(value) => `${Math.round(value * 100)}%`}
-              disabled={isUpdating("screen_glow_intensity")}
+              disabled={isUpdating("overlay_position")}
             />
-          </>
+          </SettingContainer>
         )}
       </>
     );
