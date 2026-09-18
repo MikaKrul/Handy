@@ -256,6 +256,10 @@
       "volume": {
         "title": "Volume",
         "description": "Sesuaikan volume suara umpan balik audio"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "Pause Media While Recording",
+        "description": "Pause music or video playback while recording and resume it afterwards"
       }
     },
     "advanced": {
@@ -316,6 +320,10 @@
             "bottom": "Bawah",
             "top": "Atas"
           }
+        },
+        "glowIntensity": {
+          "title": "Screen Edge Glow Intensity",
+          "description": "Adjust the intensity of the subtle glow around the screen edges while recording."
         }
       },
       "pasteMethod": {

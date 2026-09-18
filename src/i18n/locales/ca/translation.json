@@ -256,6 +256,10 @@
       "volume": {
         "title": "Volum",
         "description": "Ajusta el volum dels avisos sonors"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "Pause Media While Recording",
+        "description": "Pause music or video playback while recording and resume it afterwards"
       }
     },
     "advanced": {
@@ -316,6 +320,10 @@
             "bottom": "A baix",
             "top": "A dalt"
           }
+        },
+        "glowIntensity": {
+          "title": "Screen Edge Glow Intensity",
+          "description": "Adjust the intensity of the subtle glow around the screen edges while recording."
         }
       },
       "pasteMethod": {
