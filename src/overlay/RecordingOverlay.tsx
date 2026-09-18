@@ -44,6 +44,9 @@ const RecordingOverlay: React.FC = () => {
   // while overflowing, so the resting first line stays crisp flush under the pill.
   const [overflowing, setOverflowing] = useState(false);
 
+  const [isPostProcess, setIsPostProcess] = useState(false);
+  const [justSwitched, setJustSwitched] = useState(false);
+
   const smoothedLevelsRef = useRef<number[]>(Array(16).fill(0));
   // Live-text scroll-back: the text region "sticks" to the newest line while the
   // user is at the bottom; if they scroll up to read history, auto-follow pauses
@@ -64,6 +67,8 @@ const RecordingOverlay: React.FC = () => {
           smoothedLevelsRef.current = Array(16).fill(0);
           setLevels(Array(WAVE_BARS).fill(0));
           setStreamText({ committed: "", tentative: "" });
+          setIsPostProcess(false);
+          setJustSwitched(false);
         }
 
         await syncLanguageFromSettings();
@@ -92,6 +97,8 @@ const RecordingOverlay: React.FC = () => {
       const unlistenHide = await listen("hide-overlay", () => {
         setIsVisible(false);
         setCaptureReady(false);
+        setIsPostProcess(false);
+        setJustSwitched(false);
       });
 
       const unlistenReady = await listen("recording-ready", () => {
@@ -121,6 +128,22 @@ const RecordingOverlay: React.FC = () => {
         if (payload.kind) setWorkKind(payload.kind);
       });
 
+      const unlistenPostProcessMode = await listen<boolean>(
+        "post-process-mode",
+        (event) => {
+          setIsPostProcess(Boolean(event.payload));
+        },
+      );
+
+      const unlistenPostProcessSwitched = await listen<boolean>(
+        "post-process-switched",
+        (event) => {
+          setIsPostProcess(Boolean(event.payload));
+          setJustSwitched(true);
+          setTimeout(() => setJustSwitched(false), 1200);
+        },
+      );
+
       return () => {
         unlistenShow();
         unlistenHide();
@@ -128,6 +151,8 @@ const RecordingOverlay: React.FC = () => {
         unlistenLevel();
         unlistenStream();
         unlistenPhase();
+        unlistenPostProcessMode();
+        unlistenPostProcessSwitched();
       };
     };
 
@@ -203,9 +228,19 @@ const RecordingOverlay: React.FC = () => {
   // dot (left) | waveform (center) | timer + cancel (right) — same structure for
   // pill & panel, so the Live morph is a pure width change.
   const listeningRow = (showTimer: boolean, showCancel: boolean) => (
-    <div className="sbase">
+    <div className={`sbase ${isPostProcess ? "post-process" : ""}`}>
       <div className="sbase-l">
         <span className={`sdot ${captureReady ? "ready" : "arming"}`} />
+        {isPostProcess && (
+          <span
+            className={`spost-badge ${justSwitched ? "switched" : ""}`}
+            aria-hidden="true"
+          >
+            <svg viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 1C8 4.866 4.866 8 1 8C4.866 8 8 11.134 8 15C8 11.134 11.134 8 15 8C11.134 8 8 4.866 8 1Z" />
+            </svg>
+          </span>
+        )}
       </div>
       {waveform}
       <div className="sbase-r">
@@ -244,8 +279,8 @@ const RecordingOverlay: React.FC = () => {
         <div
           key={session}
           className={`scard ${open ? "open" : ""} ${collapsed ? "working" : ""} ${
-            isVisible ? "" : "leaving"
-          }`}
+            justSwitched ? "switched-pulse" : ""
+          } ${isVisible ? "" : "leaving"}`}
         >
           <div className="stext">
             <div className="stext-clip">
@@ -294,7 +329,9 @@ const RecordingOverlay: React.FC = () => {
       className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
     >
       <div
-        className={`scard compact ${working && isVisible ? "cworking" : ""}`}
+        className={`scard compact ${working && isVisible ? "cworking" : ""} ${
+          justSwitched ? "switched-pulse" : ""
+        }`}
       >
         {working ? workingRow(workLabel, true) : listeningRow(false, true)}
       </div>

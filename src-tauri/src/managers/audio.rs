@@ -980,6 +980,17 @@ impl AudioRecordingManager {
         self.cancel_generation.load(Ordering::Acquire) != generation
     }
 
+    pub fn switch_recording_binding(&self, new_binding: &str) -> bool {
+        let mut state = self.state.lock().unwrap();
+        if let RecordingState::Recording { ref mut binding_id } = *state {
+            debug!("Switching active recording binding from '{binding_id}' to '{new_binding}'");
+            *binding_id = new_binding.to_string();
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn stop_recording(&self, binding_id: &str, cancel_generation: u64) -> Option<Vec<f32>> {
         self.invalidate_recording_readiness();
         let mut state = self.state.lock().unwrap();
@@ -987,7 +998,9 @@ impl AudioRecordingManager {
         match *state {
             RecordingState::Recording {
                 binding_id: ref active,
-            } if active == binding_id => {
+            } if active == binding_id
+                || (crate::transcription_coordinator::is_transcribe_binding(active)
+                    && crate::transcription_coordinator::is_transcribe_binding(binding_id)) => {
                 self.set_state(&mut state, RecordingState::Stopping);
                 drop(state);
 
