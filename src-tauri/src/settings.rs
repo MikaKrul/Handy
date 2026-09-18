@@ -518,6 +518,12 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
+    #[serde(default = "default_screen_glow_intensity")]
+    pub screen_glow_intensity: f32,
+}
+
+fn default_screen_glow_intensity() -> f32 {
+    0.5
 }
 
 fn default_model() -> String {
@@ -975,6 +981,7 @@ pub fn get_default_settings() -> AppSettings {
         vad_enabled: default_vad_enabled(),
         vad_backend: VadBackend::default(),
         overlay_style: default_overlay_style(),
+        screen_glow_intensity: default_screen_glow_intensity(),
     }
 }
 

@@ -27,9 +27,7 @@
     "active": true,
     "createUpdaterArtifacts": false,
     "targets": "all",
-    "resources": [
-      "resources/**/*"
-    ],
+    "resources": ["resources/**/*"],
     "license": "MIT",
     "icon": [
       "icons/32x32.png",
@@ -47,10 +45,7 @@
     },
     "linux": {
       "deb": {
-        "depends": [
-          "libgtk-layer-shell0",
-          "libopenblas0"
-        ],
+        "depends": ["libgtk-layer-shell0", "libopenblas0"],
         "files": {
           "/usr/lib/Handy": "transcribe-libs"
         }

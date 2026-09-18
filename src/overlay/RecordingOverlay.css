@@ -466,3 +466,25 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ============================================================
+   Screen Edge Recording Glow — subtle edge aura visible during recording
+   ============================================================ */
+.screen-edge-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: inset 0 0 calc(20px + 30px * var(--glow-intensity, 0.5))
+    color-mix(
+      in srgb,
+      var(--s-accent) calc(var(--glow-intensity, 0.5) * 80%),
+      transparent
+    );
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+}
+
+.screen-edge-glow.active {
+  opacity: 1;
+}
