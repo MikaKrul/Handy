@@ -727,9 +727,6 @@ fn run_effect(app: &AppHandle, state: &mut CoordinatorState, effect: Effect) {
 }
 
 fn switch_to_post_process(app: &AppHandle) {
-    if let Some(rm) = app.try_state::<Arc<AudioRecordingManager>>() {
-        rm.switch_recording_binding("transcribe_with_post_process");
-    }
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         let _ = handle.emit_to("recording_overlay", "post-process-switched", true);

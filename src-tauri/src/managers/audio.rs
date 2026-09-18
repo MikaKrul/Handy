@@ -980,17 +980,6 @@ impl AudioRecordingManager {
         self.cancel_generation.load(Ordering::Acquire) != generation
     }
 
-    pub fn switch_recording_binding(&self, new_binding: &str) -> bool {
-        let mut state = self.state.lock().unwrap();
-        if let RecordingState::Recording { ref mut binding_id } = *state {
-            debug!("Switching active recording binding from '{binding_id}' to '{new_binding}'");
-            *binding_id = new_binding.to_string();
-            true
-        } else {
-            false
-        }
-    }
-
     pub fn stop_recording(&self, binding_id: &str, cancel_generation: u64) -> Option<Vec<f32>> {
         self.invalidate_recording_readiness();
         let mut state = self.state.lock().unwrap();
