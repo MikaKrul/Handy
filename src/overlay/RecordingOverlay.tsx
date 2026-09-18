@@ -43,7 +43,6 @@ const RecordingOverlay: React.FC = () => {
   // True once live text overflows the cap. A top overlay fades its top edge only
   // while overflowing, so the resting first line stays crisp flush under the pill.
   const [overflowing, setOverflowing] = useState(false);
-  const [glowIntensity, setGlowIntensity] = useState(0.5);
 
   const smoothedLevelsRef = useRef<number[]>(Array(16).fill(0));
   // Live-text scroll-back: the text region "sticks" to the newest line while the
@@ -76,9 +75,6 @@ const RecordingOverlay: React.FC = () => {
             setPosition(
               settings.data.overlay_position === "top" ? "top" : "bottom",
             );
-            if (typeof settings.data.screen_glow_intensity === "number") {
-              setGlowIntensity(settings.data.screen_glow_intensity);
-            }
           }
         } catch {
           // Keep the previous/default placement if settings can't be read.
@@ -231,9 +227,6 @@ const RecordingOverlay: React.FC = () => {
     </div>
   );
 
-  const isRecordingState =
-    state === "recording" || (state === "streaming" && phase === "listening");
-
   // ---- Live overlay: a pill that sculpts open into a panel ----
   if (state === "streaming") {
     const hasText =
@@ -247,48 +240,42 @@ const RecordingOverlay: React.FC = () => {
     const collapsed = working && !hasText;
 
     return (
-      <>
+      <div dir={direction} className={`ov-stage ${position}`}>
         <div
-          className={`screen-edge-glow ${isRecordingState && isVisible ? "active" : ""}`}
-          style={{ "--glow-intensity": glowIntensity } as React.CSSProperties}
-        />
-        <div dir={direction} className={`ov-stage ${position}`}>
-          <div
-            key={session}
-            className={`scard ${open ? "open" : ""} ${collapsed ? "working" : ""} ${
-              isVisible ? "" : "leaving"
-            }`}
-          >
-            <div className="stext">
-              <div className="stext-clip">
-                <div
-                  className={`stext-cap ${overflowing ? "overflowing" : ""}`}
-                  ref={capRef}
-                  onScroll={handleStreamScroll}
-                >
-                  <p>
-                    <span className="committed">
-                      {streamText.committed ? streamText.committed + " " : ""}
-                    </span>
-                    <span className="tentative">{streamText.tentative}</span>
-                    {/* Drop the blinking caret once finalizing — it's no longer
-                        capturing, and a static spinner conveys the work. */}
-                    {!working && <span className="scaret" />}
-                  </p>
-                </div>
+          key={session}
+          className={`scard ${open ? "open" : ""} ${collapsed ? "working" : ""} ${
+            isVisible ? "" : "leaving"
+          }`}
+        >
+          <div className="stext">
+            <div className="stext-clip">
+              <div
+                className={`stext-cap ${overflowing ? "overflowing" : ""}`}
+                ref={capRef}
+                onScroll={handleStreamScroll}
+              >
+                <p>
+                  <span className="committed">
+                    {streamText.committed ? streamText.committed + " " : ""}
+                  </span>
+                  <span className="tentative">{streamText.tentative}</span>
+                  {/* Drop the blinking caret once finalizing — it's no longer
+                      capturing, and a static spinner conveys the work. */}
+                  {!working && <span className="scaret" />}
+                </p>
               </div>
             </div>
-            {working
-              ? workingRow(
-                  workKind === "polishing"
-                    ? t("overlay.processing")
-                    : t("overlay.transcribing"),
-                  true,
-                )
-              : listeningRow(open, true)}
           </div>
+          {working
+            ? workingRow(
+                workKind === "polishing"
+                  ? t("overlay.processing")
+                  : t("overlay.transcribing"),
+                true,
+              )
+            : listeningRow(open, true)}
         </div>
-      </>
+      </div>
     );
   }
 
@@ -302,22 +289,16 @@ const RecordingOverlay: React.FC = () => {
       : t("overlay.transcribing");
 
   return (
-    <>
+    <div
+      dir={direction}
+      className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
+    >
       <div
-        className={`screen-edge-glow ${isRecordingState && isVisible ? "active" : ""}`}
-        style={{ "--glow-intensity": glowIntensity } as React.CSSProperties}
-      />
-      <div
-        dir={direction}
-        className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
+        className={`scard compact ${working && isVisible ? "cworking" : ""}`}
       >
-        <div
-          className={`scard compact ${working && isVisible ? "cworking" : ""}`}
-        >
-          {working ? workingRow(workLabel, true) : listeningRow(false, true)}
-        </div>
+        {working ? workingRow(workLabel, true) : listeningRow(false, true)}
       </div>
-    </>
+    </div>
   );
 };
 

@@ -320,10 +320,6 @@
             "bottom": "下",
             "top": "上"
           }
-        },
-        "glowIntensity": {
-          "title": "Screen Edge Glow Intensity",
-          "description": "Adjust the intensity of the subtle glow around the screen edges while recording."
         }
       },
       "pasteMethod": {
