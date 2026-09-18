@@ -358,7 +358,10 @@ impl CoordinatorState {
                 Stage::Recording(id) => {
                     // Switching to post-processing while recording:
                     // Invariant: Switching to post-processing must never stop, restart, or replace the active recording.
-                    if id == "transcribe" && input.binding_id == "transcribe_with_post_process" {
+                    if input.mode == ShortcutActivation::Toggle
+                        && id == "transcribe"
+                        && input.binding_id == "transcribe_with_post_process"
+                    {
                         debug!("Switching active recording to post-processing");
                         self.stage = Stage::Recording("transcribe_with_post_process".to_string());
                         return Some(Effect::SwitchToPostProcess);
@@ -368,7 +371,8 @@ impl CoordinatorState {
                     // Matches if input is the active binding, or if input is "transcribe"
                     // while active is "transcribe_with_post_process".
                     let is_active_or_pair = id == &input.binding_id
-                        || (id == "transcribe_with_post_process" && input.binding_id == "transcribe");
+                        || (id == "transcribe_with_post_process"
+                            && input.binding_id == "transcribe");
 
                     if is_active_or_pair {
                         if self.is_locked() || input.mode == ShortcutActivation::Toggle {
@@ -388,7 +392,8 @@ impl CoordinatorState {
                 .hold
                 .as_ref()
                 .is_some_and(|h| h.binding_id == input.binding_id);
-            let matches_stage = matches!(&self.stage, Stage::Recording(id) if id == &input.binding_id);
+            let matches_stage =
+                matches!(&self.stage, Stage::Recording(id) if id == &input.binding_id);
             if matches_held || matches_stage {
                 let threshold = input.effective_hold_threshold();
                 let active_id = match &self.stage {
@@ -1733,7 +1738,7 @@ mod tests {
     }
 
     #[test]
-    fn switch_to_post_processing_during_push_to_talk() {
+    fn push_to_talk_does_not_switch_to_post_processing() {
         let mut state = CoordinatorState::new();
         let t0 = Instant::now();
 
@@ -1747,7 +1752,7 @@ mod tests {
             })
         );
 
-        // Tap post-process shortcut key while primary key is still held
+        // The post-process shortcut must not change an active PTT recording.
         let switch_press = InputEvent {
             binding_id: "transcribe_with_post_process".to_string(),
             hotkey_string: "transcribe_with_post_process".to_string(),
@@ -1757,13 +1762,10 @@ mod tests {
             external: false,
         };
         let effect = state.on_input(switch_press, t0 + ms(300));
-        assert_eq!(effect, Some(Effect::SwitchToPostProcess));
-        assert_eq!(
-            state.stage,
-            Stage::Recording("transcribe_with_post_process".to_string())
-        );
+        assert!(effect.is_none());
+        assert_eq!(state.stage, Stage::Recording("transcribe".to_string()));
 
-        // Release the post-process switch key — must NOT stop PTT recording
+        // Releasing the post-process shortcut must not affect PTT either.
         let switch_release = InputEvent {
             binding_id: "transcribe_with_post_process".to_string(),
             hotkey_string: "transcribe_with_post_process".to_string(),
@@ -1774,10 +1776,7 @@ mod tests {
         };
         let effect = state.on_input(switch_release, t0 + ms(350));
         assert!(effect.is_none(), "releasing switch key must not stop PTT");
-        assert_eq!(
-            state.stage,
-            Stage::Recording("transcribe_with_post_process".to_string())
-        );
+        assert_eq!(state.stage, Stage::Recording("transcribe".to_string()));
 
         // Genuine release of the primary held key
         let effect = state.on_input(ptt_input(false), t0 + ms(800));
@@ -1788,7 +1787,7 @@ mod tests {
         assert_eq!(
             effect,
             Some(Effect::Stop {
-                binding_id: "transcribe_with_post_process".to_string(),
+                binding_id: "transcribe".to_string(),
                 hotkey_string: "transcribe".to_string(),
             })
         );
@@ -1796,7 +1795,7 @@ mod tests {
     }
 
     #[test]
-    fn switch_to_post_processing_during_hold_or_toggle_tap() {
+    fn hold_or_toggle_does_not_switch_to_post_processing() {
         let mode = ShortcutActivation::HoldOrToggle;
         let mut state = CoordinatorState::new();
         let t0 = Instant::now();
@@ -1807,7 +1806,7 @@ mod tests {
         assert!(state.on_grace_expired().is_none());
         assert!(state.is_locked(), "tap should lock session");
 
-        // Switch to post-processing while locked
+        // Post-processing switching is limited to Toggle mode.
         let switch_input = InputEvent {
             binding_id: "transcribe_with_post_process".to_string(),
             hotkey_string: "transcribe_with_post_process".to_string(),
@@ -1817,15 +1816,15 @@ mod tests {
             external: false,
         };
         let effect = state.on_input(switch_input, t0 + ms(600));
-        assert_eq!(effect, Some(Effect::SwitchToPostProcess));
+        assert!(effect.is_none());
         assert!(state.is_locked(), "session must remain locked");
 
-        // Tap primary key to stop
+        // Tap primary key to stop the regular recording.
         let effect = state.on_input(input(mode, true), t0 + ms(1200));
         assert_eq!(
             effect,
             Some(Effect::Stop {
-                binding_id: "transcribe_with_post_process".to_string(),
+                binding_id: "transcribe".to_string(),
                 hotkey_string: "transcribe".to_string(),
             })
         );
