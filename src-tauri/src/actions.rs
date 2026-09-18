@@ -566,11 +566,6 @@ impl ShortcutAction for TranscribeAction {
             OverlayStyle::Live | OverlayStyle::Minimal => show_recording_overlay(app),
             OverlayStyle::None => {} // show_overlay_state no-ops on None anyway
         }
-        let post_process = self.post_process;
-        let app_handle = app.clone();
-        let _ = app.run_on_main_thread(move || {
-            let _ = app_handle.emit_to("recording_overlay", "post-process-mode", post_process);
-        });
         // Everything above runs before capture can begin, so each span here is
         // added keypress->capture latency.
         debug!(

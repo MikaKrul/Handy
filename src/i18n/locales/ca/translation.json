@@ -243,10 +243,6 @@
         "average": "Fes la mitjana de tots els canals",
         "channel": "Canal {{n}}"
       },
-      "pauseMediaWhileRecording": {
-        "label": "Posa en pausa el contingut multimèdia durant l'enregistrament",
-        "description": "Posa en pausa la reproducció de música o vídeo durant l'enregistrament i reprèn-la després"
-      },
       "audioFeedback": {
         "label": "Avisos sonors",
         "description": "Reprodueix un so quan s'inicia i s'atura l'enregistrament"
