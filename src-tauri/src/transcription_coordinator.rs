@@ -6,7 +6,7 @@ use std::sync::mpsc::{self, Sender};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 const DEBOUNCE: Duration = Duration::from_millis(30);
 const RELEASE_GRACE: Duration = Duration::from_millis(50);
@@ -72,6 +72,7 @@ enum Remembered {
 
 /// Bookkeeping for the key press that started the current recording.
 struct Hold {
+    binding_id: String,
     pressed_at: Instant,
     /// Recording outlives the key: the next press stops it, releases are
     /// ignored. Always set for toggle; set for hold-or-toggle once a release
@@ -173,6 +174,7 @@ enum Effect {
         binding_id: String,
         hotkey_string: String,
     },
+    SwitchToPostProcess,
 }
 
 /// Commands processed sequentially by the coordinator thread.
@@ -261,7 +263,7 @@ impl CoordinatorState {
             .as_ref()
             .map(|pending| pending.binding_id.as_str());
         let held_binding = match &self.stage {
-            Stage::Recording(id) => Some(id.as_str()),
+            Stage::Recording(_) => self.hold.as_ref().map(|h| h.binding_id.as_str()),
             Stage::Processing => self.pending_press.as_ref().map(|p| p.binding_id.as_str()),
             Stage::Idle => None,
         };
@@ -361,30 +363,53 @@ impl CoordinatorState {
                         locked,
                     ));
                 }
-                Stage::Recording(id) if id == &input.binding_id => {
-                    // A locked session ends on the next press. In toggle mode
-                    // every press ends it, even if the recording began under a
-                    // hold mode (the setting changed mid-recording) — otherwise
-                    // nothing but Escape could stop it.
-                    if self.is_locked() || input.mode == ShortcutActivation::Toggle {
-                        return Some(self.begin_processing(input.binding_id, input.hotkey_string));
+                Stage::Recording(id) => {
+                    // Switching to post-processing while recording:
+                    // Invariant: Switching to post-processing must never stop, restart, or replace the active recording.
+                    if input.mode == ShortcutActivation::Toggle
+                        && id == "transcribe"
+                        && input.binding_id == "transcribe_with_post_process"
+                    {
+                        debug!("Switching active recording to post-processing");
+                        self.stage = Stage::Recording("transcribe_with_post_process".to_string());
+                        return Some(Effect::SwitchToPostProcess);
                     }
-                    // The key is still held (its release will end this
-                    // recording), so a repeated press means nothing.
-                    debug!("Ignoring press for '{}': key is held", input.binding_id);
+
+                    // Stopping the recording in Toggle / locked mode:
+                    // Matches if input is the active binding, or if input is "transcribe"
+                    // while active is "transcribe_with_post_process".
+                    let is_active_or_pair = id == &input.binding_id
+                        || (id == "transcribe_with_post_process"
+                            && input.binding_id == "transcribe");
+
+                    if is_active_or_pair {
+                        if self.is_locked() || input.mode == ShortcutActivation::Toggle {
+                            return Some(self.begin_processing(id.clone(), input.hotkey_string));
+                        }
+                        debug!("Ignoring press for '{}': key is held", input.binding_id);
+                    } else {
+                        debug!(
+                            "Ignoring press for '{}': another binding is recording",
+                            input.binding_id
+                        );
+                    }
                 }
-                _ => debug!(
-                    "Ignoring press for '{}': another binding is recording",
-                    input.binding_id
-                ),
             }
-        } else if hold_to_talk
-            && matches!(&self.stage, Stage::Recording(id) if id == &input.binding_id)
-        {
-            // A release that was not deferred (one is already pending for this
-            // binding): resolve it immediately rather than dropping it.
-            let threshold = input.effective_hold_threshold();
-            return self.finish_hold(input.binding_id, input.hotkey_string, now, threshold);
+        } else if hold_to_talk && matches!(&self.stage, Stage::Recording(_)) {
+            let matches_held = self
+                .hold
+                .as_ref()
+                .is_some_and(|h| h.binding_id == input.binding_id);
+            let matches_stage =
+                matches!(&self.stage, Stage::Recording(id) if id == &input.binding_id);
+            if matches_held || matches_stage {
+                let threshold = input.effective_hold_threshold();
+                let active_id = match &self.stage {
+                    Stage::Recording(id) => id.clone(),
+                    _ => input.binding_id,
+                };
+                return self.finish_hold(active_id, input.hotkey_string, now, threshold);
+            }
         }
         None
     }
@@ -395,12 +420,22 @@ impl CoordinatorState {
     fn on_grace_expired(&mut self) -> Option<Effect> {
         let pending = self.pending_release.take()?;
         match &self.stage {
-            Stage::Recording(id) if *id == pending.binding_id => self.finish_hold(
-                pending.binding_id,
-                pending.hotkey_string,
-                pending.released_at,
-                pending.hold_threshold,
-            ),
+            Stage::Recording(id) => {
+                let held_matches = self
+                    .hold
+                    .as_ref()
+                    .is_some_and(|h| h.binding_id == pending.binding_id);
+                if *id == pending.binding_id || held_matches {
+                    self.finish_hold(
+                        id.clone(),
+                        pending.hotkey_string,
+                        pending.released_at,
+                        pending.hold_threshold,
+                    )
+                } else {
+                    None
+                }
+            }
             Stage::Processing => {
                 self.finish_pending_hold(&pending);
                 None
@@ -516,7 +551,11 @@ impl CoordinatorState {
         locked: bool,
     ) -> Effect {
         self.stage = Stage::Recording(binding_id.clone());
-        self.hold = Some(Hold { pressed_at, locked });
+        self.hold = Some(Hold {
+            binding_id: binding_id.clone(),
+            pressed_at,
+            locked,
+        });
         Effect::Start {
             binding_id,
             hotkey_string,
@@ -695,7 +734,17 @@ fn run_effect(app: &AppHandle, state: &mut CoordinatorState, effect: Effect) {
             binding_id,
             hotkey_string,
         } => stop(app, &binding_id, &hotkey_string),
+        Effect::SwitchToPostProcess => {
+            switch_to_post_process(app);
+        }
     }
+}
+
+fn switch_to_post_process(app: &AppHandle) {
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let _ = handle.emit_to("recording_overlay", "post-process-switched", true);
+    });
 }
 
 /// Execute a start effect; returns whether recording actually began, so the
@@ -1677,5 +1726,223 @@ mod tests {
             "held 400ms since the real key-down: must stop, not lock"
         );
         assert_eq!(state.stage, Stage::Processing);
+    }
+
+    #[test]
+    fn switch_to_post_processing_during_recording_in_toggle_mode() {
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        // Start plain recording
+        let effect = state.on_input(toggle_input_for("transcribe", false), t0);
+        assert_eq!(
+            effect,
+            Some(Effect::Start {
+                binding_id: "transcribe".to_string(),
+                hotkey_string: "transcribe".to_string(),
+            })
+        );
+        assert_eq!(state.stage, Stage::Recording("transcribe".to_string()));
+
+        // Switch to post-processing while recording
+        let effect = state.on_input(
+            toggle_input_for("transcribe_with_post_process", false),
+            t0 + ms(500),
+        );
+        assert_eq!(effect, Some(Effect::SwitchToPostProcess));
+        assert_eq!(
+            state.stage,
+            Stage::Recording("transcribe_with_post_process".to_string())
+        );
+
+        // Stop recording with post-process shortcut
+        let effect = state.on_input(
+            toggle_input_for("transcribe_with_post_process", false),
+            t0 + ms(1000),
+        );
+        assert_eq!(
+            effect,
+            Some(Effect::Stop {
+                binding_id: "transcribe_with_post_process".to_string(),
+                hotkey_string: "transcribe_with_post_process".to_string(),
+            })
+        );
+        assert_eq!(state.stage, Stage::Processing);
+    }
+
+    #[test]
+    fn switch_to_post_processing_and_stop_with_primary_shortcut_in_toggle_mode() {
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        // Start plain recording
+        let effect = state.on_input(toggle_input_for("transcribe", false), t0);
+        assert!(matches!(effect, Some(Effect::Start { .. })));
+
+        // Switch to post-processing while recording
+        let effect = state.on_input(
+            toggle_input_for("transcribe_with_post_process", false),
+            t0 + ms(500),
+        );
+        assert_eq!(effect, Some(Effect::SwitchToPostProcess));
+
+        // Stop recording using the primary shortcut (muscle memory)
+        let effect = state.on_input(toggle_input_for("transcribe", false), t0 + ms(1000));
+        assert_eq!(
+            effect,
+            Some(Effect::Stop {
+                binding_id: "transcribe_with_post_process".to_string(),
+                hotkey_string: "transcribe".to_string(),
+            })
+        );
+        assert_eq!(state.stage, Stage::Processing);
+    }
+
+    #[test]
+    fn push_to_talk_does_not_switch_to_post_processing() {
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        // Hold primary key down to start recording
+        let effect = state.on_input(ptt_input(true), t0);
+        assert_eq!(
+            effect,
+            Some(Effect::Start {
+                binding_id: "transcribe".to_string(),
+                hotkey_string: "transcribe".to_string(),
+            })
+        );
+
+        // The post-process shortcut must not change an active PTT recording.
+        let switch_press = InputEvent {
+            binding_id: "transcribe_with_post_process".to_string(),
+            hotkey_string: "transcribe_with_post_process".to_string(),
+            is_pressed: true,
+            mode: ShortcutActivation::PushToTalk,
+            hold_threshold: Duration::ZERO,
+            external: false,
+        };
+        let effect = state.on_input(switch_press, t0 + ms(300));
+        assert!(effect.is_none());
+        assert_eq!(state.stage, Stage::Recording("transcribe".to_string()));
+
+        // Releasing the post-process shortcut must not affect PTT either.
+        let switch_release = InputEvent {
+            binding_id: "transcribe_with_post_process".to_string(),
+            hotkey_string: "transcribe_with_post_process".to_string(),
+            is_pressed: false,
+            mode: ShortcutActivation::PushToTalk,
+            hold_threshold: Duration::ZERO,
+            external: false,
+        };
+        let effect = state.on_input(switch_release, t0 + ms(350));
+        assert!(effect.is_none(), "releasing switch key must not stop PTT");
+        assert_eq!(state.stage, Stage::Recording("transcribe".to_string()));
+
+        // Genuine release of the primary held key
+        let effect = state.on_input(ptt_input(false), t0 + ms(800));
+        assert!(effect.is_none(), "PTT release is deferred for grace window");
+
+        // Grace window elapses
+        let effect = state.on_grace_expired();
+        assert_eq!(
+            effect,
+            Some(Effect::Stop {
+                binding_id: "transcribe".to_string(),
+                hotkey_string: "transcribe".to_string(),
+            })
+        );
+        assert_eq!(state.stage, Stage::Processing);
+    }
+
+    #[test]
+    fn hold_or_toggle_does_not_switch_to_post_processing() {
+        let mode = ShortcutActivation::HoldOrToggle;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        // Tap primary key (< 500ms threshold)
+        assert!(state.on_input(input(mode, true), t0).is_some());
+        assert!(state.on_input(input(mode, false), t0 + ms(100)).is_none());
+        assert!(state.on_grace_expired().is_none());
+        assert!(state.is_locked(), "tap should lock session");
+
+        // Post-processing switching is limited to Toggle mode.
+        let switch_input = InputEvent {
+            binding_id: "transcribe_with_post_process".to_string(),
+            hotkey_string: "transcribe_with_post_process".to_string(),
+            is_pressed: true,
+            mode,
+            hold_threshold: Duration::from_millis(500),
+            external: false,
+        };
+        let effect = state.on_input(switch_input, t0 + ms(600));
+        assert!(effect.is_none());
+        assert!(state.is_locked(), "session must remain locked");
+
+        // Tap primary key to stop the regular recording.
+        let effect = state.on_input(input(mode, true), t0 + ms(1200));
+        assert_eq!(
+            effect,
+            Some(Effect::Stop {
+                binding_id: "transcribe".to_string(),
+                hotkey_string: "transcribe".to_string(),
+            })
+        );
+        assert_eq!(state.stage, Stage::Processing);
+    }
+
+    #[test]
+    fn switch_to_post_processing_via_external_cli_trigger() {
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        // handy --toggle-transcription starts recording
+        let effect = state.on_input(toggle_input_for("transcribe", true), t0);
+        assert!(matches!(effect, Some(Effect::Start { .. })));
+
+        // handy --toggle-post-process while recording switches mode
+        let effect = state.on_input(
+            toggle_input_for("transcribe_with_post_process", true),
+            t0 + ms(200),
+        );
+        assert_eq!(effect, Some(Effect::SwitchToPostProcess));
+        assert_eq!(
+            state.stage,
+            Stage::Recording("transcribe_with_post_process".to_string())
+        );
+
+        // handy --toggle-post-process again stops and post-processes
+        let effect = state.on_input(
+            toggle_input_for("transcribe_with_post_process", true),
+            t0 + ms(600),
+        );
+        assert_eq!(
+            effect,
+            Some(Effect::Stop {
+                binding_id: "transcribe_with_post_process".to_string(),
+                hotkey_string: "transcribe_with_post_process".to_string(),
+            })
+        );
+        assert_eq!(state.stage, Stage::Processing);
+    }
+
+    #[test]
+    fn switch_to_post_processing_is_idempotent() {
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        let _ = state.on_input(toggle_input_for("transcribe", false), t0);
+        let effect = state.on_input(
+            toggle_input_for("transcribe_with_post_process", false),
+            t0 + ms(200),
+        );
+        assert_eq!(effect, Some(Effect::SwitchToPostProcess));
+
+        // Once in post-process, stage is transcribe_with_post_process
+        assert_eq!(
+            state.stage,
+            Stage::Recording("transcribe_with_post_process".to_string())
+        );
     }
 }

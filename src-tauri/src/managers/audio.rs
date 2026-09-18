@@ -987,7 +987,10 @@ impl AudioRecordingManager {
         match *state {
             RecordingState::Recording {
                 binding_id: ref active,
-            } if active == binding_id => {
+            } if active == binding_id
+                || (crate::transcription_coordinator::is_transcribe_binding(active)
+                    && crate::transcription_coordinator::is_transcribe_binding(binding_id)) =>
+            {
                 self.set_state(&mut state, RecordingState::Stopping);
                 drop(state);
 

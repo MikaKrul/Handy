@@ -243,6 +243,10 @@
         "average": "Rata-ratakan semua kanal",
         "channel": "Kanal {{n}}"
       },
+      "pauseMediaWhileRecording": {
+        "label": "Jeda Media Saat Merekam",
+        "description": "Jeda pemutaran musik atau video saat merekam dan lanjutkan kembali setelahnya"
+      },
       "audioFeedback": {
         "label": "Umpan Balik Audio",
         "description": "Putar suara saat perekaman dimulai dan dihentikan"
