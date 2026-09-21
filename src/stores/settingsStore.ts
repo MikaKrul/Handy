@@ -329,7 +329,22 @@ export const useSettingsStore = create<SettingsStore>()(
 
         const updater = settingUpdaters[key];
         if (updater) {
-          await updater(value);
+          const result = await updater(value);
+          // Surface backend rejections (e.g. a shortcut conflict): without
+          // this the optimistic update above would stick even though the
+          // setting was not applied.
+          if (
+            result &&
+            typeof result === "object" &&
+            "status" in result &&
+            (result as { status: string }).status === "error"
+          ) {
+            throw new Error(
+              String(
+                (result as { error?: unknown }).error ?? "Failed to update setting",
+              ),
+            );
+          }
         } else if (key !== "bindings" && key !== "selected_model") {
           console.warn(`No handler for setting: ${String(key)}`);
         }

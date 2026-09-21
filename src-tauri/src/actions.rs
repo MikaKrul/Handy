@@ -598,10 +598,9 @@ impl ShortcutAction for TranscribeAction {
         }
 
         if recording_error.is_none() {
-            // Dynamically register the cancel shortcut in a separate task to avoid deadlock
-            shortcut::register_cancel_shortcut(app);
-            // Dynamically register the Enter-to-stop shortcut while recording
-            shortcut::register_stop_shortcut(app);
+            // Dynamically register the recording shortcuts (Enter-to-stop
+            // first, then cancel) in a single task to avoid deadlock
+            shortcut::register_recording_shortcuts(app);
         } else {
             // Starting failed (for example due to blocked microphone permissions).
             // Revert UI state so we don't stay stuck in the recording overlay.
