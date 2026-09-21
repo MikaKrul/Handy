@@ -207,6 +207,10 @@
           "push_to_talk": "Records while you hold the shortcut",
           "toggle": "Tap the shortcut to start recording, tap again to stop"
         }
+      },
+      "stopWithEnter": {
+        "label": "Stop with Enter",
+        "description": "Pressing Enter while recording stops it, exactly like pressing the transcribe shortcut again. The transcription is then pasted, or post-processed first when the recording started with post-processing."
       }
     },
     "models": {

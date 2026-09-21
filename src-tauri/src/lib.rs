@@ -696,6 +696,7 @@ pub fn run(cli_args: CliArgs) {
             shortcut::change_mute_while_recording_setting,
             shortcut::change_pause_media_while_recording_setting,
             shortcut::change_append_trailing_space_setting,
+            shortcut::change_stop_with_enter_setting,
             shortcut::change_lazy_stream_close_setting,
             shortcut::change_vad_enabled_setting,
             shortcut::change_vad_backend_setting,

@@ -207,6 +207,10 @@
           "push_to_talk": "Enregistreu mentre manteniu premuda la drecera",
           "toggle": "Premeu la drecera per iniciar l'enregistrament i torneu-la a prémer per aturar-lo"
         }
+      },
+      "stopWithEnter": {
+        "label": "Atura amb Retorn",
+        "description": "Prémer Retorn durant l'enregistrament l'atura, igual que prémer la drecera de transcripció una altra vegada. La transcripció s'enganxa després, o es postprocessa primer si l'enregistrament va començar amb postprocessament."
       }
     },
     "models": {
@@ -244,8 +248,8 @@
         "channel": "Canal {{n}}"
       },
       "pauseMediaWhileRecording": {
-        "label": "Pause Media While Recording",
-        "description": "Pause music or video playback while recording and resume it afterwards"
+        "label": "Pausa els mitjans durant l'enregistrament",
+        "description": "Pausa la reproducció de música o vídeo durant l'enregistrament i la reprèn després"
       },
       "audioFeedback": {
         "label": "Avisos sonors",

@@ -227,6 +227,10 @@
           "push_to_talk": "Enregistre tant que le raccourci est maintenu",
           "toggle": "Appuyez sur le raccourci pour démarrer l'enregistrement, appuyez à nouveau pour arrêter"
         }
+      },
+      "stopWithEnter": {
+        "label": "Arrêter avec Entrée",
+        "description": "Appuyer sur Entrée pendant l'enregistrement l'arrête, exactement comme un second appui sur le raccourci de transcription. La transcription est ensuite collée, ou post-traitée d'abord si l'enregistrement a démarré avec le post-traitement."
       }
     },
     "sound": {

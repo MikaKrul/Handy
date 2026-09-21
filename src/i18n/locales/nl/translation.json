@@ -207,6 +207,10 @@
           "push_to_talk": "Neemt op zolang je de sneltoets ingedrukt houdt",
           "toggle": "Tik op de sneltoets om de opname te starten, tik opnieuw om te stoppen"
         }
+      },
+      "stopWithEnter": {
+        "label": "Stop met Enter",
+        "description": "Als je tijdens het opnemen op Enter drukt, stopt de opname, net zoals wanneer je de transcribeersneltoets nog een keer indrukt. De transcriptie wordt daarna geplakt, of eerst nabewerkt als de opname met nabewerking is gestart."
       }
     },
     "models": {
