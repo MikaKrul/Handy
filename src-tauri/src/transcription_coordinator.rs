@@ -1752,4 +1752,29 @@ mod tests {
         }
         assert_eq!(state.stage, Stage::Processing);
     }
+
+    /// Stop request while a hold release is still deferred in its grace
+    /// window: recording stops exactly once, and the later grace expiry
+    /// resolves against the busy pipeline as a harmless no-op.
+    #[test]
+    fn stop_request_during_deferred_release_stops_once() {
+        let mode = ShortcutActivation::HoldOrToggle;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+        assert!(matches!(
+            state.on_input(input(mode, true), t0),
+            Some(Effect::Start { .. })
+        ));
+        // Release after an 800ms hold: deferred, not yet resolved.
+        assert!(state.on_input(input(mode, false), t0 + ms(800)).is_none());
+        assert!(state.grace_deadline().is_some());
+        // Enter arrives before the grace elapses.
+        assert!(matches!(
+            state.on_stop_request("enter".to_string()),
+            Some(Effect::Stop { .. })
+        ));
+        assert_eq!(state.stage, Stage::Processing);
+        assert!(state.on_grace_expired().is_none());
+        assert_eq!(state.stage, Stage::Processing);
+    }
 }
