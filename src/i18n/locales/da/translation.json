@@ -703,8 +703,8 @@
   "overlay": {
     "transcribing": "Transskriberer...",
     "processing": "Behandler...",
-    "switchToPostProcessing": "Skift til efterbehandling",
-    "switchToRawTranscript": "Skift til rå transskription"
+    "switchToPostProcessing": "Efterbehandling til",
+    "switchToRawTranscript": "Efterbehandling fra"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} blokerer muligvis 1 genvej",

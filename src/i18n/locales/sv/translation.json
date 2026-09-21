@@ -700,8 +700,8 @@
   "overlay": {
     "transcribing": "Transkriberar...",
     "processing": "Bearbetar...",
-    "switchToPostProcessing": "Växla till efterbehandling",
-    "switchToRawTranscript": "Växla till rå transkribering"
+    "switchToPostProcessing": "Efterbehandling på",
+    "switchToRawTranscript": "Efterbehandling av"
   },
   "whatsNew": {
     "title": "Nytt i Handy v{{version}}"

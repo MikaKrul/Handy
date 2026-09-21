@@ -703,8 +703,8 @@
   "overlay": {
     "transcribing": "Mentranskripsikan...",
     "processing": "Memproses...",
-    "switchToPostProcessing": "Beralih ke pasca-pemrosesan",
-    "switchToRawTranscript": "Beralih ke transkrip mentah"
+    "switchToPostProcessing": "Pasca-pemrosesan aktif",
+    "switchToRawTranscript": "Pasca-pemrosesan nonaktif"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} mungkin memblokir 1 pintasan",

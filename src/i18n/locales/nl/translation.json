@@ -703,8 +703,8 @@
   "overlay": {
     "transcribing": "Transcriberen...",
     "processing": "Verwerken...",
-    "switchToPostProcessing": "Schakel over op post-processing",
-    "switchToRawTranscript": "Schakel over op ruwe transcriptie"
+    "switchToPostProcessing": "Post-processing aan",
+    "switchToRawTranscript": "Post-processing uit"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} blokkeert mogelijk 1 sneltoets",

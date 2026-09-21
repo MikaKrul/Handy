@@ -700,8 +700,8 @@
   "overlay": {
     "transcribing": "Transkribe ediliyor...",
     "processing": "İşleniyor...",
-    "switchToPostProcessing": "Son işlemeye geç",
-    "switchToRawTranscript": "Ham transkripte geç"
+    "switchToPostProcessing": "Son işleme açık",
+    "switchToRawTranscript": "Son işleme kapalı"
   },
   "whatsNew": {
     "title": "Handy v{{version}} yenilikleri"
