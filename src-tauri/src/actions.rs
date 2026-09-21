@@ -52,6 +52,19 @@ impl Drop for FinishGuard {
 pub trait ShortcutAction: Send + Sync {
     fn start(&self, app: &AppHandle, binding_id: &str, shortcut_str: &str);
     fn stop(&self, app: &AppHandle, binding_id: &str, shortcut_str: &str);
+    /// Stop with an explicitly resolved post-processing flag. Defaults to the
+    /// plain `stop` (used by actions without a post-processing concept); the
+    /// transcribe action overrides this so a mid-recording toggle can lock in
+    /// a per-session choice without touching the persisted setting.
+    fn stop_with_post_process(
+        &self,
+        app: &AppHandle,
+        binding_id: &str,
+        shortcut_str: &str,
+        _post_process: bool,
+    ) {
+        self.stop(app, binding_id, shortcut_str);
+    }
 }
 
 // Transcribe Action
@@ -630,7 +643,17 @@ impl ShortcutAction for TranscribeAction {
         );
     }
 
-    fn stop(&self, app: &AppHandle, binding_id: &str, _shortcut_str: &str) {
+    fn stop(&self, app: &AppHandle, binding_id: &str, shortcut_str: &str) {
+        self.stop_with_post_process(app, binding_id, shortcut_str, self.post_process);
+    }
+
+    fn stop_with_post_process(
+        &self,
+        app: &AppHandle,
+        binding_id: &str,
+        _shortcut_str: &str,
+        post_process: bool,
+    ) {
         // Prevent a slow microphone from emitting a ready event or start chime
         // after the user has already requested stop.
         app.state::<Arc<AudioRecordingManager>>()
@@ -669,7 +692,6 @@ impl ShortcutAction for TranscribeAction {
         play_feedback_sound(app, SoundType::Stop);
 
         let binding_id = binding_id.to_string(); // Clone binding_id for the async task
-        let post_process = self.post_process;
         let cancel_generation = rm.cancel_generation();
 
         tauri::async_runtime::spawn(async move {
