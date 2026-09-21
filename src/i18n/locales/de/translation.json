@@ -708,8 +708,8 @@
   "overlay": {
     "transcribing": "Transkribiere...",
     "processing": "Verarbeite...",
-    "switchToPostProcessing": "Zu Post-Processing wechseln",
-    "switchToRawTranscript": "Zu Roh-Transkript wechseln"
+    "switchToPostProcessing": "Post-Processing an",
+    "switchToRawTranscript": "Post-Processing aus"
   },
   "whatsNew": {
     "title": "Neu in Handy v{{version}}"

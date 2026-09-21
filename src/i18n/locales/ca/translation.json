@@ -711,8 +711,8 @@
   "overlay": {
     "transcribing": "S'està transcrivint...",
     "processing": "S'està processant...",
-    "switchToPostProcessing": "Canvia al postprocessament",
-    "switchToRawTranscript": "Canvia a la transcripció en brut"
+    "switchToPostProcessing": "Postprocessament activat",
+    "switchToRawTranscript": "Postprocessament desactivat"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} pot estar blocant 1 drecera",

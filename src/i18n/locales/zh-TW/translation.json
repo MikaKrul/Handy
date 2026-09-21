@@ -708,8 +708,8 @@
   "overlay": {
     "transcribing": "正在轉錄...",
     "processing": "處理中...",
-    "switchToPostProcessing": "切換到後期處理",
-    "switchToRawTranscript": "切換到原始轉錄"
+    "switchToPostProcessing": "後期處理已開啟",
+    "switchToRawTranscript": "後期處理已關閉"
   },
   "whatsNew": {
     "title": "Handy v{{version}} 新功能"

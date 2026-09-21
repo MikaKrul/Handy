@@ -708,8 +708,8 @@
   "overlay": {
     "transcribing": "Транскрибиране...",
     "processing": "Обработка...",
-    "switchToPostProcessing": "Превключване към последваща обработка",
-    "switchToRawTranscript": "Превключване към необработен препис"
+    "switchToPostProcessing": "Последваща обработка: вкл.",
+    "switchToRawTranscript": "Последваща обработка: изкл."
   },
   "whatsNew": {
     "title": "Ново в Handy v{{version}}"

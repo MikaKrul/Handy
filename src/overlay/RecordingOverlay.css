@@ -468,8 +468,23 @@
 }
 
 /* Mid-recording post-processing switch notice: same footprint as the waveform
-   row, brief fade-and-rise so the mode change reads instantly, then the
-   overlay falls back to the recording state (the notice is removed by timer). */
+   row. The row remounts on every switch (keyed by direction) so the entrance
+   replays, and the pill flashes a brief accent ring that fades while the
+   notice is up — then the overlay falls back to the recording state. */
+.sbase.spp {
+  animation: spp-in 240ms ease-out;
+}
+.scard.spp-flash {
+  animation: spp-flash 1.1s ease-out;
+}
+@keyframes spp-flash {
+  0% {
+    box-shadow: 0 0 0 3px var(--s-accent-soft);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
 .spp-label {
   font-size: 12px;
   font-weight: 600;
