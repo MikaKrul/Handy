@@ -704,8 +704,8 @@
   "overlay": {
     "transcribing": "正在转录...",
     "processing": "处理中...",
-    "switchToPostProcessing": "切换到后期处理",
-    "switchToRawTranscript": "切换到原始转录"
+    "switchToPostProcessing": "后期处理已开启",
+    "switchToRawTranscript": "后期处理已关闭"
   },
   "whatsNew": {
     "title": "Handy v{{version}} 新功能"

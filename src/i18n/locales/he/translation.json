@@ -704,8 +704,8 @@
   "overlay": {
     "transcribing": "מתמלל...",
     "processing": "מעבד...",
-    "switchToPostProcessing": "מעבר לעיבוד נוסף",
-    "switchToRawTranscript": "מעבר לתמליל גולמי"
+    "switchToPostProcessing": "עיבוד נוסף מופעל",
+    "switchToRawTranscript": "עיבוד נוסף כבוי"
   },
   "whatsNew": {
     "title": "חדש ב-Handy v{{version}}"

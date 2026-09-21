@@ -270,9 +270,10 @@ const RecordingOverlay: React.FC = () => {
 
   // Brief mid-recording post-processing switch notice (dot | label | cancel) —
   // same grid as the other rows, so the pill keeps its size and the message
-  // simply fades in over the waveform, then falls back to recording.
+  // simply flashes over the waveform, then falls back to recording. Keyed by
+  // direction so the entrance replays cleanly.
   const switchNoticeRow = (enabled: boolean) => (
-    <div className="sbase">
+    <div className="sbase spp" key={enabled ? "pp-on" : "pp-off"}>
       <div className="sbase-l">
         <span className={`sdot ${captureReady ? "ready" : "arming"}`} />
       </div>
@@ -303,7 +304,7 @@ const RecordingOverlay: React.FC = () => {
           key={session}
           className={`scard ${open ? "open" : ""} ${collapsed ? "working" : ""} ${
             isVisible ? "" : "leaving"
-          }`}
+          } ${postProcessNotice !== null && !working ? "spp-flash" : ""}`}
         >
           <div className="stext">
             <div className="stext-clip">
@@ -354,7 +355,9 @@ const RecordingOverlay: React.FC = () => {
       className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
     >
       <div
-        className={`scard compact ${working && isVisible ? "cworking" : ""}`}
+        className={`scard compact ${working && isVisible ? "cworking" : ""} ${
+          postProcessNotice !== null ? "spp-flash" : ""
+        }`}
       >
         {working ? (
           workingRow(workLabel, true)

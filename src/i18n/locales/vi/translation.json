@@ -704,8 +704,8 @@
   "overlay": {
     "transcribing": "Đang chuyển đổi...",
     "processing": "Đang xử lý...",
-    "switchToPostProcessing": "Chuyển sang hậu xử lý",
-    "switchToRawTranscript": "Chuyển sang bản ghi thô"
+    "switchToPostProcessing": "Hậu xử lý bật",
+    "switchToRawTranscript": "Hậu xử lý tắt"
   },
   "whatsNew": {
     "title": "Điểm mới trong Handy v{{version}}"

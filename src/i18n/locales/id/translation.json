@@ -243,6 +243,10 @@
         "average": "Rata-ratakan semua kanal",
         "channel": "Kanal {{n}}"
       },
+      "pauseMediaWhileRecording": {
+        "label": "Pause Media While Recording",
+        "description": "Pause music or video playback while recording and resume it afterwards"
+      },
       "audioFeedback": {
         "label": "Umpan Balik Audio",
         "description": "Putar suara saat perekaman dimulai dan dihentikan"
@@ -703,8 +707,8 @@
   "overlay": {
     "transcribing": "Mentranskripsikan...",
     "processing": "Memproses...",
-    "switchToPostProcessing": "Beralih ke pasca-pemrosesan",
-    "switchToRawTranscript": "Beralih ke transkrip mentah"
+    "switchToPostProcessing": "Pasca-pemrosesan aktif",
+    "switchToRawTranscript": "Pasca-pemrosesan nonaktif"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} mungkin memblokir 1 pintasan",
