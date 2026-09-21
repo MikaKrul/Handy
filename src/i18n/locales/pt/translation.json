@@ -207,6 +207,10 @@
           "push_to_talk": "Grava enquanto você mantém o atalho pressionado",
           "toggle": "Toque no atalho para começar a gravar, toque novamente para parar"
         }
+      },
+      "stopWithEnter": {
+        "label": "Parar com Enter",
+        "description": "Premir Enter durante a gravação para-a, tal como premir o atalho de transcrição novamente. A transcrição é depois colada, ou pós-processada primeiro se a gravação começou com pós-processamento."
       }
     },
     "models": {

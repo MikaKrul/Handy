@@ -79,6 +79,46 @@ pub fn unregister_cancel_shortcut(app: &AppHandle) {
     }
 }
 
+/// The global key that stops the active recording while it runs.
+/// Fixed to Enter and managed dynamically like `cancel`: it is only
+/// registered while recording so it never interferes with normal typing.
+pub const STOP_SHORTCUT: &str = "enter";
+
+/// Ad-hoc binding for the dynamic stop shortcut. Unlike `cancel` it is not
+/// stored in settings — the key is fixed and only the enablement is a
+/// setting (`stop_with_enter`).
+pub fn stop_shortcut_binding() -> ShortcutBinding {
+    ShortcutBinding {
+        id: "stop".to_string(),
+        name: "Stop".to_string(),
+        description: "Stops the current recording.".to_string(),
+        default_binding: STOP_SHORTCUT.to_string(),
+        current_binding: STOP_SHORTCUT.to_string(),
+    }
+}
+
+/// Register the stop shortcut (called when recording starts).
+/// No-op unless `stop_with_enter` is enabled.
+pub fn register_stop_shortcut(app: &AppHandle) {
+    if !get_settings(app).stop_with_enter {
+        return;
+    }
+    let settings = get_settings(app);
+    match settings.keyboard_implementation {
+        KeyboardImplementation::Tauri => tauri_impl::register_stop_shortcut(app),
+        KeyboardImplementation::HandyKeys => handy_keys::register_stop_shortcut(app),
+    }
+}
+
+/// Unregister the stop shortcut (called when recording stops or is cancelled).
+pub fn unregister_stop_shortcut(app: &AppHandle) {
+    let settings = get_settings(app);
+    match settings.keyboard_implementation {
+        KeyboardImplementation::Tauri => tauri_impl::unregister_stop_shortcut(app),
+        KeyboardImplementation::HandyKeys => handy_keys::unregister_stop_shortcut(app),
+    }
+}
+
 /// Register a shortcut using the appropriate implementation
 pub fn register_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<(), String> {
     let settings = get_settings(app);
@@ -234,7 +274,7 @@ pub fn reset_binding(app: AppHandle, id: String) -> Result<BindingResponse, Stri
 /// by the recording lifecycle.
 pub fn suspend_all_shortcuts(app: &AppHandle) {
     for (id, binding) in settings::get_bindings(app) {
-        if id == "cancel" {
+        if id == "cancel" || id == "stop" {
             continue;
         }
         if let Err(e) = unregister_shortcut(app, binding) {
@@ -252,7 +292,7 @@ pub fn suspend_all_shortcuts(app: &AppHandle) {
 pub fn resume_all_shortcuts(app: &AppHandle) {
     let settings = get_settings(app);
     for (id, binding) in &settings.bindings {
-        if id == "cancel" {
+        if id == "cancel" || id == "stop" {
             continue;
         }
         if id == "transcribe_with_post_process" && !settings.post_process_enabled {
@@ -413,7 +453,8 @@ fn unregister_all_shortcuts(app: &AppHandle, implementation: KeyboardImplementat
 
     for (id, binding) in bindings {
         // Skip cancel shortcut as it's dynamically registered
-        if id == "cancel" {
+        // Skip stop shortcut as it's dynamically registered
+        if id == "cancel" || id == "stop" {
             continue;
         }
 
@@ -442,7 +483,8 @@ fn register_all_shortcuts_for_implementation(
 
     for (id, default_binding) in &default_bindings {
         // Skip cancel shortcut as it's dynamically registered
-        if id == "cancel" {
+        // Skip stop shortcut as it's dynamically registered
+        if id == "cancel" || id == "stop" {
             continue;
         }
 
@@ -1263,6 +1305,15 @@ pub fn change_mute_while_recording_setting(app: AppHandle, enabled: bool) -> Res
 pub fn change_append_trailing_space_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     let mut settings = settings::get_settings(&app);
     settings.append_trailing_space = enabled;
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn change_stop_with_enter_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.stop_with_enter = enabled;
     settings::write_settings(&app, settings);
     Ok(())
 }

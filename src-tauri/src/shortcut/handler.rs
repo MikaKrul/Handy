@@ -50,6 +50,25 @@ pub fn handle_shortcut_event(
         return;
     }
 
+    // Stop binding (Enter): ends the active recording exactly like pressing
+    // the transcribe shortcut a second time — transcribe, then post-process
+    // when the session started with post-processing, then paste. Only fires
+    // while recording and on key press. Unlike cancel it never discards audio.
+    if binding_id == "stop" {
+        if !settings.stop_with_enter || !is_pressed {
+            return;
+        }
+        let audio_manager = app.state::<Arc<AudioRecordingManager>>();
+        if audio_manager.is_recording() {
+            if let Some(coordinator) = app.try_state::<TranscriptionCoordinator>() {
+                coordinator.request_stop(hotkey_string);
+            } else {
+                warn!("TranscriptionCoordinator is not initialized");
+            }
+        }
+        return;
+    }
+
     let Some(action) = ACTION_MAP.get(binding_id) else {
         warn!(
             "No action defined in ACTION_MAP for shortcut ID '{}'. Shortcut: '{}', Pressed: {}",
