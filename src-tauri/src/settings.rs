@@ -461,6 +461,12 @@ pub struct AppSettings {
     pub mute_while_recording: bool,
     #[serde(default)]
     pub append_trailing_space: bool,
+    /// Stop the active recording by pressing Enter — behaves exactly like
+    /// pressing the transcribe shortcut a second time (transcribe, then
+    /// post-process when the session started with post-processing, then
+    /// paste). The Enter keystroke itself is swallowed while recording.
+    #[serde(default = "default_stop_with_enter")]
+    pub stop_with_enter: bool,
     #[serde(default = "default_app_language")]
     pub app_language: String,
     #[serde(default = "default_theme")]
@@ -607,6 +613,10 @@ fn default_paste_delay_after_ms() -> u64 {
 
 fn default_auto_submit() -> bool {
     false
+}
+
+fn default_stop_with_enter() -> bool {
+    true
 }
 
 fn default_history_limit() -> usize {
@@ -950,6 +960,7 @@ pub fn get_default_settings() -> AppSettings {
         post_process_selected_prompt_id: None,
         mute_while_recording: false,
         append_trailing_space: false,
+        stop_with_enter: default_stop_with_enter(),
         app_language: default_app_language(),
         theme: default_theme(),
         experimental_enabled: false,
