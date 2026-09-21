@@ -699,7 +699,9 @@
   },
   "overlay": {
     "transcribing": "文字起こし中…",
-    "processing": "処理中…"
+    "processing": "処理中…",
+    "switchToPostProcessing": "後処理に切り替え",
+    "switchToRawTranscript": "生の文字起こしに切り替え"
   },
   "whatsNew": {
     "title": "Handy v{{version}} の新機能"

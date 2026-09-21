@@ -699,7 +699,9 @@
   },
   "overlay": {
     "transcribing": "Transkrypcja...",
-    "processing": "Przetwarzanie..."
+    "processing": "Przetwarzanie...",
+    "switchToPostProcessing": "Przełącz na postprocessing",
+    "switchToRawTranscript": "Przełącz na surową transkrypcję"
   },
   "whatsNew": {
     "title": "Nowości w Handy v{{version}}"

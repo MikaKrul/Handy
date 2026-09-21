@@ -636,6 +636,10 @@ pub fn show_processing_overlay(app_handle: &AppHandle) {
 /// to the normal recording state; the payload is the newly selected mode
 /// (`true` = post-processing will run). `emit_to` is thread-safe, so the
 /// coordinator thread can call this directly.
+///
+/// Feedback only: the toggle itself lives in the coordinator's per-session
+/// state, so the feature works fully with the overlay disabled
+/// (`OverlayStyle::None`) — the event is then simply never observed.
 pub fn emit_post_process_toggled(app_handle: &AppHandle, enabled: bool) {
     if let Some(overlay_window) = app_handle.get_webview_window("recording_overlay") {
         let _ = overlay_window.emit("post-process-toggled", enabled);
