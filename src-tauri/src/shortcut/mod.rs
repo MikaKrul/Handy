@@ -1005,7 +1005,14 @@ pub fn change_post_process_enabled_setting(app: AppHandle, enabled: bool) -> Res
     settings.post_process_enabled = enabled;
     settings::write_settings(&app, settings.clone());
 
-    // Register or unregister the post-processing shortcut
+    // Register or unregister the post-processing shortcut.
+    // Deliberately gated on the global setting: `post_process_enabled == false`
+    // is an explicit opt-out of AI post-processing, so the hotkey must neither
+    // start processed recordings nor offer a mid-recording switch *towards*
+    // post-processing. Switching *off* mid-recording always stays available via
+    // the plain transcribe hotkey, which is always registered. (The
+    // mid-recording switch itself lives in the coordinator's per-session
+    // state and never writes this setting.)
     if let Some(binding) = settings
         .bindings
         .get("transcribe_with_post_process")

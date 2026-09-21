@@ -54,11 +54,33 @@ impl Drop for FinishGuard {
 pub trait ShortcutAction: Send + Sync {
     fn start(&self, app: &AppHandle, binding_id: &str, shortcut_str: &str);
     fn stop(&self, app: &AppHandle, binding_id: &str, shortcut_str: &str);
+    /// Stop with an explicitly resolved post-processing flag. Defaults to the
+    /// plain `stop` (used by actions without a post-processing concept); the
+    /// transcribe action overrides this so a mid-recording toggle can lock in
+    /// a per-session choice without touching the persisted setting.
+    fn stop_with_post_process(
+        &self,
+        app: &AppHandle,
+        binding_id: &str,
+        shortcut_str: &str,
+        _post_process: bool,
+    ) {
+        self.stop(app, binding_id, shortcut_str);
+    }
 }
 
 // Transcribe Action
 struct TranscribeAction {
     post_process: bool,
+}
+
+impl TranscribeAction {
+    /// Effective post-processing flag for a stop: a coordinator-locked session
+    /// choice (`Stop.post_process`) always wins; only direct stops that bypass
+    /// the coordinator fall back to this action's default.
+    fn effective_post_process(&self, session_choice: Option<bool>) -> bool {
+        session_choice.unwrap_or(self.post_process)
+    }
 }
 
 /// Field name for structured output JSON schema
@@ -671,7 +693,22 @@ impl ShortcutAction for TranscribeAction {
         );
     }
 
-    fn stop(&self, app: &AppHandle, binding_id: &str, _shortcut_str: &str) {
+    fn stop(&self, app: &AppHandle, binding_id: &str, shortcut_str: &str) {
+        self.stop_with_post_process(
+            app,
+            binding_id,
+            shortcut_str,
+            self.effective_post_process(None),
+        );
+    }
+
+    fn stop_with_post_process(
+        &self,
+        app: &AppHandle,
+        binding_id: &str,
+        _shortcut_str: &str,
+        post_process: bool,
+    ) {
         // Prevent a slow microphone from emitting a ready event or start chime
         // after the user has already requested stop.
         app.state::<Arc<AudioRecordingManager>>()
@@ -714,7 +751,6 @@ impl ShortcutAction for TranscribeAction {
         play_feedback_sound(app, SoundType::Stop);
 
         let binding_id = binding_id.to_string(); // Clone binding_id for the async task
-        let post_process = self.post_process;
         let cancel_generation = rm.cancel_generation();
 
         tauri::async_runtime::spawn(async move {
@@ -813,6 +849,9 @@ impl ShortcutAction for TranscribeAction {
                                 utils::redact_text(&transcription)
                             );
 
+                            // `post_process` is the coordinator-locked session
+                            // choice: it drives the overlay, the LLM step and
+                            // the history flag below as one unit.
                             if post_process {
                                 if use_streaming_overlay {
                                     tm.emit_stream_working(StreamWorkKind::Polishing);
@@ -999,7 +1038,7 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
 mod tests {
     use super::{
         complete_unless_cancelled, is_blank_transcription, render_prompt_template,
-        should_use_streaming_overlay, strip_think_block,
+        should_use_streaming_overlay, strip_think_block, TranscribeAction, ACTION_MAP,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -1138,5 +1177,33 @@ mod tests {
         assert!(!should_use_streaming_overlay(OverlayStyle::Live, false));
         assert!(!should_use_streaming_overlay(OverlayStyle::Minimal, true));
         assert!(!should_use_streaming_overlay(OverlayStyle::None, true));
+    }
+
+    /// The executor resolves `Effect::Stop` through `ACTION_MAP` by binding
+    /// id, so both transcribe bindings must route to an action — otherwise a
+    /// locked session choice could never reach the output pipeline.
+    #[test]
+    fn action_map_routes_both_transcribe_bindings() {
+        assert!(ACTION_MAP.contains_key("transcribe"));
+        assert!(ACTION_MAP.contains_key("transcribe_with_post_process"));
+    }
+
+    /// Boundary contract between coordinator and action: a locked session
+    /// choice always wins over the action default; the default only applies
+    /// to direct stops that bypass the coordinator.
+    #[test]
+    fn effective_post_process_prefers_session_choice_over_default() {
+        let raw = TranscribeAction {
+            post_process: false,
+        };
+        let processed = TranscribeAction { post_process: true };
+
+        assert!(raw.effective_post_process(Some(true)));
+        assert!(!raw.effective_post_process(Some(false)));
+        assert!(!raw.effective_post_process(None));
+
+        assert!(processed.effective_post_process(Some(true)));
+        assert!(!processed.effective_post_process(Some(false)));
+        assert!(processed.effective_post_process(None));
     }
 }

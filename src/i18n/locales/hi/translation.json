@@ -706,7 +706,9 @@
   },
   "overlay": {
     "transcribing": "ट्रांसक्राइब हो रहा है...",
-    "processing": "प्रोसेस हो रहा है..."
+    "processing": "प्रोसेस हो रहा है...",
+    "switchToPostProcessing": "पोस्ट-प्रोसेसिंग पर स्विच करें",
+    "switchToRawTranscript": "कच्चे ट्रांसक्रिप्ट पर स्विच करें"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} शायद 1 शॉर्टकट को ब्लॉक कर रहा है",

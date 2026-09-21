@@ -703,7 +703,9 @@
   },
   "overlay": {
     "transcribing": "Обробка...",
-    "processing": "Постобробка..."
+    "processing": "Постобробка...",
+    "switchToPostProcessing": "Перемкнути на постобробку",
+    "switchToRawTranscript": "Перемкнути на необроблену транскрипцію"
   },
   "whatsNew": {
     "title": "Нове в Handy v{{version}}"
