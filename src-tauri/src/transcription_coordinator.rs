@@ -49,6 +49,9 @@ struct PendingPress {
     /// within the threshold (a tap). An unlocked pending press is a key we
     /// believe is still held.
     locked: bool,
+    /// Activation mode of the press that will start the drained session, so
+    /// the session's own mode governs switch eligibility from its first edge.
+    mode: ShortcutActivation,
 }
 
 impl PendingPress {
@@ -235,6 +238,12 @@ struct CoordinatorState {
     /// (recording ended / processing began) or while idle. Toggling only flips
     /// this; the persisted `post_process_enabled` setting is never written.
     session_post_process: Option<bool>,
+    /// Activation mode the running session started under. The session's own
+    /// mode — never the incoming press's — decides whether a mid-recording
+    /// post-processing switch is allowed, so changing the setting (or a
+    /// Toggle-reported external trigger) mid-recording cannot surprise the
+    /// state machine.
+    session_mode: Option<ShortcutActivation>,
 }
 
 impl CoordinatorState {
@@ -246,6 +255,7 @@ impl CoordinatorState {
             pending_release: None,
             pending_press: None,
             session_post_process: None,
+            session_mode: None,
         }
     }
 
@@ -342,6 +352,9 @@ impl CoordinatorState {
                         binding_id: input.binding_id,
                         hotkey_string: input.hotkey_string,
                         pressed_at: now,
+                        // Carried into the drained session so its own mode —
+                        // not a later press's — governs switch eligibility.
+                        mode: input.mode,
                     });
                 }
                 BusyAction::Forget => {
@@ -356,16 +369,29 @@ impl CoordinatorState {
         }
 
         if input.is_pressed {
-            // Mid-recording post-processing switch: pressing the *other*
-            // transcribe binding while recording flips the per-session flag
-            // instead of starting/stopping anything. Only toggle-based
-            // sessions participate — a locked session (toggle mode, or a
-            // hold-or-toggle tap that locked on) or an explicit toggle-mode
-            // press. Hold / push-to-talk sessions ignore the other binding so
-            // no edge cases arise from holding one key while pressing another.
+            // Mid-recording post-processing switch. Hotkey semantics, pinned
+            // down: the two transcribe bindings are each other's toggle. The
+            // binding that started the session seeds the per-session choice;
+            // pressing the *other* transcribe binding flips it, pressing the
+            // *same* binding stops recording. So a session started with
+            // `transcribe` switches via `transcribe_with_post_process` (and
+            // back via `transcribe`), while a session started with
+            // `transcribe_with_post_process` switches via `transcribe`.
+            //
+            // Only toggle-based sessions participate: a session started in
+            // toggle mode, or a hold-or-toggle tap that locked on. Hold /
+            // push-to-talk sessions ignore the other binding, so no edge cases
+            // arise from holding one key while pressing another. Eligibility
+            // comes from the running session's own stored mode — never from
+            // the incoming press's — so a settings change (or a
+            // Toggle-reported external trigger such as a CLI flag) mid-session
+            // cannot flip a hold session.
             if let Stage::Recording(recording_id) = &self.stage {
                 if input.binding_id != *recording_id && is_transcribe_binding(&input.binding_id) {
-                    if input.mode == ShortcutActivation::Toggle || self.is_locked() {
+                    let toggle_based =
+                        matches!(self.session_mode, Some(ShortcutActivation::Toggle))
+                            || self.is_locked();
+                    if toggle_based {
                         return self.toggle_session_post_process();
                     }
                     debug!(
@@ -384,6 +410,7 @@ impl CoordinatorState {
                         input.hotkey_string,
                         now,
                         locked,
+                        input.mode,
                     ));
                 }
                 Stage::Recording(id) if id == &input.binding_id => {
@@ -504,6 +531,7 @@ impl CoordinatorState {
             self.hold = None;
             // A cancelled session never reaches processing: drop its choice.
             self.session_post_process = None;
+            self.session_mode = None;
         }
     }
 
@@ -513,6 +541,7 @@ impl CoordinatorState {
         // The finished session's choice was locked into its Stop effect; a
         // fresh session seeds its own choice on start.
         self.session_post_process = None;
+        self.session_mode = None;
         let pending = self.pending_press.take()?;
         debug!(
             "Pipeline drained; starting remembered press for '{}'",
@@ -523,6 +552,7 @@ impl CoordinatorState {
             pending.hotkey_string,
             pending.pressed_at,
             pending.locked,
+            pending.mode,
         ))
     }
 
@@ -533,6 +563,7 @@ impl CoordinatorState {
             self.stage = Stage::Idle;
             self.hold = None;
             self.session_post_process = None;
+            self.session_mode = None;
         }
     }
 
@@ -544,9 +575,10 @@ impl CoordinatorState {
     }
 
     /// Flip the per-session post-processing flag while recording. Only valid
-    /// in `Stage::Recording`; the caller gates toggle eligibility (toggle
-    /// mode / locked hold-or-toggle). The global setting is untouched, and
-    /// recording continues — the returned effect only drives overlay feedback.
+    /// in `Stage::Recording`; the caller gates eligibility on the session's
+    /// own stored mode (toggle-started, or a locked hold-or-toggle tap). The
+    /// global setting is untouched, and recording continues — the returned
+    /// effect only drives overlay feedback.
     fn toggle_session_post_process(&mut self) -> Option<Effect> {
         let current = self.session_post_process?;
         if !matches!(self.stage, Stage::Recording(_)) {
@@ -567,8 +599,10 @@ impl CoordinatorState {
         hotkey_string: String,
         pressed_at: Instant,
         locked: bool,
+        mode: ShortcutActivation,
     ) -> Effect {
         self.session_post_process = Some(Self::initial_post_process(&binding_id));
+        self.session_mode = Some(mode);
         self.stage = Stage::Recording(binding_id.clone());
         self.hold = Some(Hold { pressed_at, locked });
         Effect::Start {
@@ -584,6 +618,7 @@ impl CoordinatorState {
             .session_post_process
             .take()
             .unwrap_or_else(|| Self::initial_post_process(&binding_id));
+        self.session_mode = None;
         self.stage = Stage::Processing;
         self.hold = None;
         Effect::Stop {
@@ -1928,5 +1963,116 @@ mod tests {
             Some(Effect::Start { .. })
         ));
         assert_eq!(state.session_post_process, Some(true));
+    }
+
+    /// The starting binding seeds the session: plain `transcribe` starts raw,
+    /// `transcribe_with_post_process` starts with post-processing on — along
+    /// with the session's own activation mode.
+    #[test]
+    fn post_process_session_seeds_from_starting_binding() {
+        let mode = ShortcutActivation::Toggle;
+        let t0 = Instant::now();
+
+        let mut state = CoordinatorState::new();
+        state.on_input(xinput(BINDING, mode, true), t0);
+        assert_eq!(state.session_post_process, Some(false));
+        assert_eq!(state.session_mode, Some(mode));
+
+        let mut state = CoordinatorState::new();
+        state.on_input(xinput(OTHER, mode, true), t0);
+        assert_eq!(state.session_post_process, Some(true));
+        assert_eq!(state.session_mode, Some(mode));
+    }
+
+    /// Mirror of the ON-start multi-toggle: a raw session flipped three times
+    /// (raw → processed → raw → processed) stops processed.
+    #[test]
+    fn post_process_raw_start_triple_toggle_ends_processed() {
+        let mode = ShortcutActivation::Toggle;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        state.on_input(xinput(BINDING, mode, true), t0);
+        assert_eq!(state.session_post_process, Some(false));
+
+        assert!(matches!(
+            state.on_input(xinput(OTHER, mode, true), t0 + ms(200)),
+            Some(Effect::PostProcessToggled { enabled: true })
+        ));
+        assert!(matches!(
+            state.on_input(xinput(OTHER, mode, true), t0 + ms(400)),
+            Some(Effect::PostProcessToggled { enabled: false })
+        ));
+        assert!(matches!(
+            state.on_input(xinput(OTHER, mode, true), t0 + ms(600)),
+            Some(Effect::PostProcessToggled { enabled: true })
+        ));
+
+        let effect = state.on_input(xinput(BINDING, mode, true), t0 + ms(800));
+        assert_eq!(stop_post_process(&effect), Some(true));
+    }
+
+    /// Eligibility comes from the running session's stored mode, not the
+    /// incoming press's: a push-to-talk session ignores the other binding even
+    /// when that press reports Toggle mode (settings changed mid-recording) or
+    /// arrives as an external CLI/signal edge (which always reports Toggle).
+    #[test]
+    fn post_process_toggle_uses_session_mode_not_incoming_mode() {
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        assert!(matches!(
+            state.on_input(xinput(BINDING, ShortcutActivation::PushToTalk, true), t0),
+            Some(Effect::Start { .. })
+        ));
+        assert_eq!(state.session_mode, Some(ShortcutActivation::PushToTalk));
+
+        // Toggle-reported keyboard press for the other binding: ignored.
+        assert!(state
+            .on_input(
+                xinput(OTHER, ShortcutActivation::Toggle, true),
+                t0 + ms(200)
+            )
+            .is_none());
+        // External edge (CLI flag / signal) for the other binding: ignored too.
+        assert!(state
+            .on_input(toggle_input_for(OTHER, true), t0 + ms(400))
+            .is_none());
+        assert_eq!(state.session_post_process, Some(false));
+
+        // The session still ends with its seeded choice.
+        assert!(state
+            .on_input(
+                xinput(BINDING, ShortcutActivation::PushToTalk, false),
+                t0 + ms(500)
+            )
+            .is_none());
+        let effect = state.on_grace_expired();
+        assert_eq!(stop_post_process(&effect), Some(false));
+    }
+
+    /// The coordinator owns no settings handle, so a toggle can only flip the
+    /// live session copy — never the persisted default. Behavioural proof in
+    /// the raw direction: session 1 toggles ON and stops processed, yet
+    /// session 2 starts raw again.
+    #[test]
+    fn post_process_toggle_leaves_next_session_default_untouched() {
+        let mode = ShortcutActivation::Toggle;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        // Session 1 starts raw, toggles ON, stops processed.
+        state.on_input(xinput(BINDING, mode, true), t0);
+        state.on_input(xinput(OTHER, mode, true), t0 + ms(200));
+        let effect = state.on_input(xinput(BINDING, mode, true), t0 + ms(400));
+        assert_eq!(stop_post_process(&effect), Some(true));
+
+        // Session 2 starts raw again — the toggle did not persist anywhere.
+        state.on_processing_finished();
+        assert!(matches!(
+            state.on_input(xinput(BINDING, mode, true), t0 + ms(1000)),
+            Some(Effect::Start { .. })
+        ));
+        assert_eq!(state.session_post_process, Some(false));
     }
 }
