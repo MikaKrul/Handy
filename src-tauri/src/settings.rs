@@ -459,6 +459,10 @@ pub struct AppSettings {
     pub post_process_selected_prompt_id: Option<String>,
     #[serde(default)]
     pub mute_while_recording: bool,
+    /// Pause whatever is playing (music, video) for the duration of a
+    /// recording and resume it afterwards. See `media_control`.
+    #[serde(default)]
+    pub pause_media_while_recording: bool,
     #[serde(default)]
     pub append_trailing_space: bool,
     /// Stop the active recording by pressing Enter — behaves exactly like
@@ -959,6 +963,7 @@ pub fn get_default_settings() -> AppSettings {
         post_process_prompts: default_post_process_prompts(),
         post_process_selected_prompt_id: None,
         mute_while_recording: false,
+        pause_media_while_recording: false,
         append_trailing_space: false,
         stop_with_enter: default_stop_with_enter(),
         app_language: default_app_language(),

@@ -7,6 +7,7 @@ use crate::managers::history::HistoryManager;
 use crate::managers::model::ModelManager;
 use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::TranscriptionManager;
+use crate::media_control::MediaController;
 use crate::settings::{get_settings, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID};
 use crate::shortcut;
 use crate::tray::{set_tray_state, TrayIconState};
@@ -25,6 +26,7 @@ use tauri::Manager;
 use tauri::{AppHandle, Emitter};
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
+const EMPTY_CUSTOM_WORDS: &str = "(none provided)";
 
 #[derive(Clone, serde::Serialize)]
 struct RecordingErrorEvent {
@@ -67,6 +69,43 @@ fn strip_invisible_chars(s: &str) -> String {
     s.replace(['\u{200B}', '\u{200C}', '\u{200D}', '\u{FEFF}'], "")
 }
 
+fn render_prompt_template(prompt_template: &str, output: &str, custom_words: &[String]) -> String {
+    let custom_words = if custom_words.is_empty() {
+        EMPTY_CUSTOM_WORDS.to_string()
+    } else {
+        custom_words.join("\n")
+    };
+    let mut rendered = String::with_capacity(prompt_template.len());
+    let mut remaining = prompt_template;
+
+    while let Some(placeholder_start) = remaining.find("${") {
+        rendered.push_str(&remaining[..placeholder_start]);
+        remaining = &remaining[placeholder_start..];
+
+        if let Some(rest) = remaining.strip_prefix("${output}") {
+            rendered.push_str(output);
+            remaining = rest;
+        } else if let Some(rest) = remaining.strip_prefix("${custom_words}") {
+            rendered.push_str(&custom_words);
+            remaining = rest;
+        } else {
+            rendered.push_str("${");
+            remaining = &remaining[2..];
+        }
+    }
+
+    rendered.push_str(remaining);
+    rendered
+}
+
+/// Build a system prompt from the user's prompt template. The transcription is
+/// sent separately as the user message, so `${output}` renders as empty here.
+fn build_system_prompt(prompt_template: &str, custom_words: &[String]) -> String {
+    render_prompt_template(prompt_template, "", custom_words)
+        .trim()
+        .to_string()
+}
+
 /// Strip a leading `<think>...</think>` block. Some endpoints can't disable
 /// reasoning, and some local servers put the reasoning text into `content`
 /// instead of a separate field — without this the user would get the model's
@@ -78,12 +117,6 @@ fn strip_think_block(s: &str) -> &str {
         }
     }
     s
-}
-
-/// Build a system prompt from the user's prompt template.
-/// Removes `${output}` placeholder since the transcription is sent as the user message.
-fn build_system_prompt(prompt_template: &str) -> String {
-    prompt_template.replace("${output}", "").trim().to_string()
 }
 
 /// Returns `true` when a transcription has no meaningful content to
@@ -194,7 +227,7 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
     if provider.supports_structured_output {
         debug!("Using structured outputs for provider '{}'", provider.id);
 
-        let system_prompt = build_system_prompt(&prompt);
+        let system_prompt = build_system_prompt(&prompt, &settings.custom_words);
         let user_content = transcription.to_string();
 
         // Handle Apple Intelligence separately since it uses native Swift APIs
@@ -308,8 +341,8 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
         }
     }
 
-    // Legacy mode: Replace ${output} variable in the prompt with the actual text
-    let processed_prompt = prompt.replace("${output}", transcription);
+    // Legacy mode: render the transcription and custom words into one prompt.
+    let processed_prompt = render_prompt_template(&prompt, transcription, &settings.custom_words);
     debug!("Processed prompt length: {} chars", processed_prompt.len());
 
     match crate::llm_client::send_chat_completion(
@@ -475,6 +508,12 @@ impl ShortcutAction for TranscribeAction {
         let tm = app.state::<Arc<TranscriptionManager>>();
         let rm = app.state::<Arc<AudioRecordingManager>>();
 
+        // Silence whatever the user was listening to before the mic opens (and
+        // before our own start chime, which would otherwise look like playback
+        // to the "is anything playing?" probe). The controller queues the work
+        // on its own thread, so this is a channel send, not a media round-trip.
+        app.state::<Arc<MediaController>>().pause_playing_media();
+
         // Load ASR model and VAD model in parallel
         let kickoff_started = Instant::now();
         tm.initiate_model_load();
@@ -607,6 +646,8 @@ impl ShortcutAction for TranscribeAction {
             tm.cancel_stream();
             utils::hide_recording_overlay(app);
             set_tray_state(app, TrayIconState::Idle);
+            // Nothing is going to be recorded, so give the media back.
+            app.state::<Arc<MediaController>>().resume_paused_media();
             if let Some(err) = recording_error {
                 let error_type = if is_microphone_access_denied(&err) {
                     "microphone_permission_denied"
@@ -667,6 +708,10 @@ impl ShortcutAction for TranscribeAction {
 
         // Unmute before playing audio feedback so the stop sound is audible
         rm.remove_mute();
+
+        // Recording is over, so the user's music can come back; transcription
+        // itself is silent and there is no reason to keep it waiting for that.
+        app.state::<Arc<MediaController>>().resume_paused_media();
 
         // Play audio feedback for recording stop
         play_feedback_sound(app, SoundType::Stop);
@@ -956,8 +1001,8 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
 #[cfg(test)]
 mod tests {
     use super::{
-        complete_unless_cancelled, is_blank_transcription, should_use_streaming_overlay,
-        strip_think_block,
+        complete_unless_cancelled, is_blank_transcription, render_prompt_template,
+        should_use_streaming_overlay, strip_think_block,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -965,6 +1010,63 @@ mod tests {
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
+
+    fn words(words: &[&str]) -> Vec<String> {
+        words.iter().map(|word| word.to_string()).collect()
+    }
+
+    #[test]
+    fn prompt_template_replaces_supported_placeholders() {
+        assert_eq!(
+            render_prompt_template(
+                "Transcript: ${output}\nCustom words:\n${custom_words}",
+                "hello world",
+                &words(&["Handy", "OpenCode"]),
+            ),
+            "Transcript: hello world\nCustom words:\nHandy\nOpenCode"
+        );
+    }
+
+    #[test]
+    fn prompt_template_replaces_repeated_placeholders() {
+        assert_eq!(
+            render_prompt_template(
+                "${output}|${output}|${custom_words}|${custom_words}",
+                "hello",
+                &words(&["Handy"]),
+            ),
+            "hello|hello|Handy|Handy"
+        );
+    }
+
+    #[test]
+    fn prompt_template_without_placeholders_is_unchanged() {
+        let template = "Clean this transcription without changing its meaning.";
+        assert_eq!(
+            render_prompt_template(template, "hello", &words(&["Handy"])),
+            template
+        );
+    }
+
+    #[test]
+    fn prompt_template_uses_explicit_fallback_for_empty_custom_words() {
+        assert_eq!(
+            render_prompt_template("Custom words: ${custom_words}", "hello", &[]),
+            "Custom words: (none provided)"
+        );
+    }
+
+    #[test]
+    fn prompt_template_does_not_expand_placeholders_in_values() {
+        assert_eq!(
+            render_prompt_template(
+                "${output} / ${custom_words}",
+                "literal ${custom_words}",
+                &words(&["literal ${output}"]),
+            ),
+            "literal ${custom_words} / literal ${output}"
+        );
+    }
 
     #[test]
     fn blank_transcription_is_detected() {
