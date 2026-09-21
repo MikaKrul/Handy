@@ -186,6 +186,12 @@ pub fn register_recording_shortcuts(app: &AppHandle) {
                 if let Err(e) = register_shortcut(&app_clone, super::stop_shortcut_binding()) {
                     error!("Failed to register stop shortcut: {}", e);
                 }
+                if let Err(e) = register_shortcut(
+                    &app_clone,
+                    super::stop_numpad_shortcut_binding(super::STOP_NUMPAD_SHORTCUT_TAURI),
+                ) {
+                    error!("Failed to register numpad stop shortcut: {}", e);
+                }
             }
             if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned() {
                 if let Err(e) = register_shortcut(&app_clone, cancel_binding) {
@@ -217,10 +223,10 @@ pub fn unregister_cancel_shortcut(app: &AppHandle) {
     }
 }
 
-/// Register the stop (Enter) shortcut (called when recording starts).
-/// Dynamically registered like `cancel`, so Enter is only swallowed while
-/// recording. Disabled on Linux for the same dynamic-registration
-/// instability that disables `cancel` there.
+/// Register the stop (Enter and numpad Enter) shortcuts (called when
+/// recording starts). Dynamically registered like `cancel`, so Enter is only
+/// swallowed while recording. Disabled on Linux for the same
+/// dynamic-registration instability that disables `cancel` there.
 pub fn register_stop_shortcut(app: &AppHandle) {
     // Stop shortcut is disabled on Linux due to instability with dynamic shortcut registration
     #[cfg(target_os = "linux")]
@@ -236,11 +242,18 @@ pub fn register_stop_shortcut(app: &AppHandle) {
             if let Err(e) = register_shortcut(&app_clone, super::stop_shortcut_binding()) {
                 error!("Failed to register stop shortcut: {}", e);
             }
+            if let Err(e) = register_shortcut(
+                &app_clone,
+                super::stop_numpad_shortcut_binding(super::STOP_NUMPAD_SHORTCUT_TAURI),
+            ) {
+                error!("Failed to register numpad stop shortcut: {}", e);
+            }
         });
     }
 }
 
-/// Unregister the stop (Enter) shortcut (called when recording stops)
+/// Unregister the stop (Enter and numpad Enter) shortcuts (called when
+/// recording stops)
 pub fn unregister_stop_shortcut(app: &AppHandle) {
     // Stop shortcut is disabled on Linux due to instability with dynamic shortcut registration
     #[cfg(target_os = "linux")]
@@ -255,6 +268,10 @@ pub fn unregister_stop_shortcut(app: &AppHandle) {
         tauri::async_runtime::spawn(async move {
             // We ignore errors here as it might already be unregistered
             let _ = unregister_shortcut(&app_clone, super::stop_shortcut_binding());
+            let _ = unregister_shortcut(
+                &app_clone,
+                super::stop_numpad_shortcut_binding(super::STOP_NUMPAD_SHORTCUT_TAURI),
+            );
         });
     }
 }
