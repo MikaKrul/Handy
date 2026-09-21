@@ -95,6 +95,20 @@ pub fn unregister_cancel_shortcut(app: &AppHandle) {
 /// registered while recording so it never interferes with normal typing.
 pub const STOP_SHORTCUT: &str = "enter";
 
+/// The numpad Enter key, registered alongside [`STOP_SHORTCUT`]. It is a
+/// separate physical key with its own scancode, so the main Enter registration
+/// never fires for it. The two backends use different names for it
+/// (`global-hotkey` only knows `numpadenter`/`numenter`, `handy-keys` only
+/// knows `keypadenter`), hence one constant per backend.
+pub const STOP_NUMPAD_SHORTCUT_TAURI: &str = "numpadenter";
+pub const STOP_NUMPAD_SHORTCUT_HANDYKEYS: &str = "keypadenter";
+
+/// Binding ids owned by Stop-with-Enter. Both are ad-hoc (never stored in
+/// settings) and dynamically registered only while recording.
+pub fn is_stop_binding(id: &str) -> bool {
+    id == "stop" || id == "stop_numpad"
+}
+
 /// Ad-hoc binding for the dynamic stop shortcut. Unlike `cancel` it is not
 /// stored in settings — the key is fixed and only the enablement is a
 /// setting (`stop_with_enter`).
@@ -108,8 +122,21 @@ pub fn stop_shortcut_binding() -> ShortcutBinding {
     }
 }
 
-/// Register the stop shortcut (called when recording starts).
-/// No-op unless `stop_with_enter` is enabled.
+/// Ad-hoc binding for the dynamic numpad-Enter stop shortcut. Same role as
+/// [`stop_shortcut_binding`], but `hotkey` must be the backend-specific name
+/// from [`STOP_NUMPAD_SHORTCUT_TAURI`] / [`STOP_NUMPAD_SHORTCUT_HANDYKEYS`].
+pub fn stop_numpad_shortcut_binding(hotkey: &str) -> ShortcutBinding {
+    ShortcutBinding {
+        id: "stop_numpad".to_string(),
+        name: "Stop (numpad)".to_string(),
+        description: "Stops the current recording.".to_string(),
+        default_binding: hotkey.to_string(),
+        current_binding: hotkey.to_string(),
+    }
+}
+
+/// Register the stop shortcuts — main Enter *and* numpad Enter (called when
+/// recording starts). No-op unless `stop_with_enter` is enabled.
 pub fn register_stop_shortcut(app: &AppHandle) {
     if !get_settings(app).stop_with_enter {
         return;
@@ -121,7 +148,8 @@ pub fn register_stop_shortcut(app: &AppHandle) {
     }
 }
 
-/// Unregister the stop shortcut (called when recording stops or is cancelled).
+/// Unregister the stop shortcuts — main Enter *and* numpad Enter (called when
+/// recording stops or is cancelled).
 pub fn unregister_stop_shortcut(app: &AppHandle) {
     let settings = get_settings(app);
     match settings.keyboard_implementation {
@@ -139,17 +167,22 @@ fn enter_binding_conflicts() -> bool {
 }
 
 /// Whether a shortcut string is bare Enter with no modifiers (`enter`,
-/// `Enter`, `return`, ...). A bare-Enter *stored* binding would collide with
-/// the dynamic Enter-to-stop shortcut registered while recording: one of the
-/// two global registrations would fail and Stop-with-Enter would silently not
-/// work. Combos like `ctrl+enter` are unaffected — only the exact single key.
+/// `Enter`, `return`, `numpadenter`, `keypadenter`, ...). A bare-Enter
+/// *stored* binding would collide with the dynamic Enter-to-stop shortcut
+/// registered while recording: one of the two global registrations would fail
+/// and Stop-with-Enter would silently not work. Combos like `ctrl+enter` are
+/// unaffected — only the exact single key.
 fn is_bare_enter_binding(raw: &str) -> bool {
     let parts: Vec<&str> = raw
         .split('+')
         .map(str::trim)
         .filter(|part| !part.is_empty())
         .collect();
-    parts.len() == 1 && matches!(parts[0].to_lowercase().as_str(), "enter" | "return")
+    parts.len() == 1
+        && matches!(
+            parts[0].to_lowercase().as_str(),
+            "enter" | "return" | "numpadenter" | "numenter" | "keypadenter"
+        )
 }
 
 /// The id of a stored binding currently claiming bare Enter, if any.
@@ -209,13 +242,13 @@ pub fn change_binding(
     // A bare-Enter binding would collide with the dynamic Enter-to-stop
     // shortcut registered while recording, leaving Stop-with-Enter silently
     // broken. Refuse the combination with a message that says how to proceed.
-    if id != "stop"
+    if !is_stop_binding(&id)
         && settings.stop_with_enter
         && enter_binding_conflicts()
         && is_bare_enter_binding(&binding)
     {
         return Err(
-            "'Enter' on its own is reserved while Stop with Enter is enabled. Turn Stop with Enter off first, or choose a different shortcut."
+            "'Enter' on its own (including Numpad Enter) is reserved while Stop with Enter is enabled. Turn Stop with Enter off first, or choose a different shortcut."
                 .to_string(),
         );
     }
@@ -332,7 +365,7 @@ pub fn reset_binding(app: AppHandle, id: String) -> Result<BindingResponse, Stri
 /// by the recording lifecycle.
 pub fn suspend_all_shortcuts(app: &AppHandle) {
     for (id, binding) in settings::get_bindings(app) {
-        if id == "cancel" || id == "stop" {
+        if id == "cancel" || is_stop_binding(&id) {
             continue;
         }
         if let Err(e) = unregister_shortcut(app, binding) {
@@ -350,7 +383,7 @@ pub fn suspend_all_shortcuts(app: &AppHandle) {
 pub fn resume_all_shortcuts(app: &AppHandle) {
     let settings = get_settings(app);
     for (id, binding) in &settings.bindings {
-        if id == "cancel" || id == "stop" {
+        if id == "cancel" || is_stop_binding(id) {
             continue;
         }
         if id == "transcribe_with_post_process" && !settings.post_process_enabled {
@@ -511,8 +544,8 @@ fn unregister_all_shortcuts(app: &AppHandle, implementation: KeyboardImplementat
 
     for (id, binding) in bindings {
         // Skip cancel shortcut as it's dynamically registered
-        // Skip stop shortcut as it's dynamically registered
-        if id == "cancel" || id == "stop" {
+        // Skip stop shortcuts as they're dynamically registered
+        if id == "cancel" || is_stop_binding(&id) {
             continue;
         }
 
@@ -541,8 +574,8 @@ fn register_all_shortcuts_for_implementation(
 
     for (id, default_binding) in &default_bindings {
         // Skip cancel shortcut as it's dynamically registered
-        // Skip stop shortcut as it's dynamically registered
-        if id == "cancel" || id == "stop" {
+        // Skip stop shortcuts as they're dynamically registered
+        if id == "cancel" || is_stop_binding(id) {
             continue;
         }
 
@@ -1378,7 +1411,7 @@ pub fn change_stop_with_enter_setting(app: AppHandle, enabled: bool) -> Result<(
     if enabled && enter_binding_conflicts() {
         if let Some(conflicting_id) = find_bare_enter_binding(&settings) {
             return Err(format!(
-                "Cannot turn on Stop with Enter while the '{}' shortcut is set to Enter. Change that shortcut first.",
+                "Cannot turn on Stop with Enter while the '{}' shortcut is set to Enter or Numpad Enter. Change that shortcut first.",
                 conflicting_id
             ));
         }
@@ -1569,9 +1602,36 @@ mod tests {
         }
     }
 
+    /// Numpad Enter needs a backend-specific name: `global-hotkey` (Tauri)
+    /// only knows `numpadenter`/`numenter`, `handy-keys` only `keypadenter`
+    /// (verified against both crates' key tables). Both must parse on their
+    /// own backend, otherwise numpad Enter silently never stops a recording.
+    #[test]
+    fn stop_numpad_shortcut_key_parses_on_its_backend() {
+        assert!(
+            "numpadenter".parse::<Shortcut>().is_ok(),
+            "Tauri rejected numpadenter"
+        );
+        assert!(
+            "keypadenter".parse::<Hotkey>().is_ok(),
+            "HandyKeys rejected keypadenter"
+        );
+    }
+
     #[test]
     fn bare_enter_detection_matches_single_key_only() {
-        for raw in ["enter", "Enter", "ENTER", "  enter  ", "return", "Return"] {
+        for raw in [
+            "enter",
+            "Enter",
+            "ENTER",
+            "  enter  ",
+            "return",
+            "Return",
+            "numpadenter",
+            "NumEnter",
+            "keypadenter",
+            "KeypadEnter",
+        ] {
             assert!(
                 is_bare_enter_binding(raw),
                 "{raw:?} should count as bare Enter"
@@ -1587,6 +1647,7 @@ mod tests {
             "shift+return",
             "ctrl+space",
             "enter++space",
+            "ctrl+numpadenter",
         ] {
             assert!(
                 !is_bare_enter_binding(raw),
