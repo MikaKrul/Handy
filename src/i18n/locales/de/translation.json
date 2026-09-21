@@ -707,7 +707,9 @@
   },
   "overlay": {
     "transcribing": "Transkribiere...",
-    "processing": "Verarbeite..."
+    "processing": "Verarbeite...",
+    "switchToPostProcessing": "Zu Post-Processing wechseln",
+    "switchToRawTranscript": "Zu Roh-Transkript wechseln"
   },
   "whatsNew": {
     "title": "Neu in Handy v{{version}}"

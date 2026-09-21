@@ -707,7 +707,9 @@
   },
   "overlay": {
     "transcribing": "Transcribiendo...",
-    "processing": "Procesando..."
+    "processing": "Procesando...",
+    "switchToPostProcessing": "Cambiar a posprocesamiento",
+    "switchToRawTranscript": "Cambiar a transcripción sin procesar"
   },
   "whatsNew": {
     "title": "Nuevo en Handy v{{version}}"
