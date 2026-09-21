@@ -630,6 +630,18 @@ pub fn show_processing_overlay(app_handle: &AppHandle) {
     show_overlay_state(app_handle, "processing");
 }
 
+/// Transient feedback for the mid-recording post-processing toggle: emitted
+/// from the transcription coordinator right after the per-session choice
+/// flips. The overlay shows a brief "switch to …" notice and then falls back
+/// to the normal recording state; the payload is the newly selected mode
+/// (`true` = post-processing will run). `emit_to` is thread-safe, so the
+/// coordinator thread can call this directly.
+pub fn emit_post_process_toggled(app_handle: &AppHandle, enabled: bool) {
+    if let Some(overlay_window) = app_handle.get_webview_window("recording_overlay") {
+        let _ = overlay_window.emit("post-process-toggled", enabled);
+    }
+}
+
 /// Updates the overlay window position based on current settings
 pub fn update_overlay_position(app_handle: &AppHandle) {
     // Positioning queries monitors/cursor (GDK/Xlib on Linux) and moves the

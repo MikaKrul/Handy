@@ -164,7 +164,15 @@ enum Effect {
     Stop {
         binding_id: String,
         hotkey_string: String,
+        /// Per-session post-processing choice, locked the moment recording
+        /// ends. This is the toggled value — not the static `ACTION_MAP`
+        /// default — so a mid-recording switch is honoured without touching
+        /// the persisted setting.
+        post_process: bool,
     },
+    /// The per-session post-processing flag flipped mid-recording. The
+    /// executor only forwards this to the overlay; recording continues.
+    PostProcessToggled { enabled: bool },
 }
 
 /// Commands processed sequentially by the coordinator thread.
@@ -222,6 +230,11 @@ struct CoordinatorState {
     last_press: Option<Instant>,
     pending_release: Option<PendingRelease>,
     pending_press: Option<PendingPress>,
+    /// Per-session post-processing choice. `Some` while recording (seeded from
+    /// the binding that started the session), `None` once the choice is locked
+    /// (recording ended / processing began) or while idle. Toggling only flips
+    /// this; the persisted `post_process_enabled` setting is never written.
+    session_post_process: Option<bool>,
 }
 
 impl CoordinatorState {
@@ -232,6 +245,7 @@ impl CoordinatorState {
             last_press: None,
             pending_release: None,
             pending_press: None,
+            session_post_process: None,
         }
     }
 
@@ -342,6 +356,25 @@ impl CoordinatorState {
         }
 
         if input.is_pressed {
+            // Mid-recording post-processing switch: pressing the *other*
+            // transcribe binding while recording flips the per-session flag
+            // instead of starting/stopping anything. Only toggle-based
+            // sessions participate — a locked session (toggle mode, or a
+            // hold-or-toggle tap that locked on) or an explicit toggle-mode
+            // press. Hold / push-to-talk sessions ignore the other binding so
+            // no edge cases arise from holding one key while pressing another.
+            if let Stage::Recording(recording_id) = &self.stage {
+                if input.binding_id != *recording_id && is_transcribe_binding(&input.binding_id) {
+                    if input.mode == ShortcutActivation::Toggle || self.is_locked() {
+                        return self.toggle_session_post_process();
+                    }
+                    debug!(
+                        "Ignoring press for '{}': post-processing switch needs a toggle-based session",
+                        input.binding_id
+                    );
+                    return None;
+                }
+            }
             match &self.stage {
                 Stage::Idle => {
                     // Toggle never ends on a release: locked from the start.
@@ -469,12 +502,17 @@ impl CoordinatorState {
         {
             self.stage = Stage::Idle;
             self.hold = None;
+            // A cancelled session never reaches processing: drop its choice.
+            self.session_post_process = None;
         }
     }
 
     fn on_processing_finished(&mut self) -> Option<Effect> {
         self.stage = Stage::Idle;
         self.hold = None;
+        // The finished session's choice was locked into its Stop effect; a
+        // fresh session seeds its own choice on start.
+        self.session_post_process = None;
         let pending = self.pending_press.take()?;
         debug!(
             "Pipeline drained; starting remembered press for '{}'",
@@ -494,7 +532,30 @@ impl CoordinatorState {
         if !started && matches!(&self.stage, Stage::Recording(id) if id == binding_id) {
             self.stage = Stage::Idle;
             self.hold = None;
+            self.session_post_process = None;
         }
+    }
+
+    /// The binding that starts a session seeds its post-processing choice:
+    /// `transcribe_with_post_process` starts with post-processing on, plain
+    /// `transcribe` starts raw. Mid-recording toggles only flip this copy.
+    fn initial_post_process(binding_id: &str) -> bool {
+        binding_id == "transcribe_with_post_process"
+    }
+
+    /// Flip the per-session post-processing flag while recording. Only valid
+    /// in `Stage::Recording`; the caller gates toggle eligibility (toggle
+    /// mode / locked hold-or-toggle). The global setting is untouched, and
+    /// recording continues — the returned effect only drives overlay feedback.
+    fn toggle_session_post_process(&mut self) -> Option<Effect> {
+        let current = self.session_post_process?;
+        if !matches!(self.stage, Stage::Recording(_)) {
+            return None;
+        }
+        let enabled = !current;
+        self.session_post_process = Some(enabled);
+        debug!("Post-processing switched mid-recording: enabled={enabled}");
+        Some(Effect::PostProcessToggled { enabled })
     }
 
     /// Optimistic transition to `Recording`; rolled back via
@@ -507,6 +568,7 @@ impl CoordinatorState {
         pressed_at: Instant,
         locked: bool,
     ) -> Effect {
+        self.session_post_process = Some(Self::initial_post_process(&binding_id));
         self.stage = Stage::Recording(binding_id.clone());
         self.hold = Some(Hold { pressed_at, locked });
         Effect::Start {
@@ -516,11 +578,18 @@ impl CoordinatorState {
     }
 
     fn begin_processing(&mut self, binding_id: String, hotkey_string: String) -> Effect {
+        // Lock the per-session choice into the Stop effect: from here on the
+        // session is processing and further toggles are ignored.
+        let post_process = self
+            .session_post_process
+            .take()
+            .unwrap_or_else(|| Self::initial_post_process(&binding_id));
         self.stage = Stage::Processing;
         self.hold = None;
         Effect::Stop {
             binding_id,
             hotkey_string,
+            post_process,
         }
     }
 }
@@ -680,7 +749,11 @@ fn run_effect(app: &AppHandle, state: &mut CoordinatorState, effect: Effect) {
         Effect::Stop {
             binding_id,
             hotkey_string,
-        } => stop(app, &binding_id, &hotkey_string),
+            post_process,
+        } => stop(app, &binding_id, &hotkey_string, post_process),
+        Effect::PostProcessToggled { enabled } => {
+            crate::overlay::emit_post_process_toggled(app, enabled);
+        }
     }
 }
 
@@ -701,12 +774,12 @@ fn start(app: &AppHandle, binding_id: &str, hotkey_string: &str) -> bool {
     recording
 }
 
-fn stop(app: &AppHandle, binding_id: &str, hotkey_string: &str) {
+fn stop(app: &AppHandle, binding_id: &str, hotkey_string: &str, post_process: bool) {
     let Some(action) = ACTION_MAP.get(binding_id) else {
         warn!("No action in ACTION_MAP for '{binding_id}'");
         return;
     };
-    action.stop(app, binding_id, hotkey_string);
+    action.stop_with_post_process(app, binding_id, hotkey_string, post_process);
 }
 
 #[cfg(test)]
@@ -920,6 +993,7 @@ mod tests {
             match effect {
                 Some(Effect::Start { .. }) => starts += 1,
                 Some(Effect::Stop { .. }) => stops += 1,
+                Some(Effect::PostProcessToggled { .. }) => {}
                 None => {}
             }
         }
@@ -1613,5 +1687,246 @@ mod tests {
             "held 400ms since the real key-down: must stop, not lock"
         );
         assert_eq!(state.stage, Stage::Processing);
+    }
+
+    // ---------------------------------------------------------------------
+    // Mid-recording post-processing switch (feat/switch-to-post-processing-
+    // during-transcription). Pressing the *other* transcribe binding while a
+    // toggle-based session is recording flips the per-session flag; the Stop
+    // effect locks the choice in without touching the persisted setting.
+    // ---------------------------------------------------------------------
+
+    const OTHER: &str = "transcribe_with_post_process";
+
+    fn xinput(binding: &str, mode: ShortcutActivation, is_pressed: bool) -> InputEvent {
+        InputEvent {
+            binding_id: binding.to_string(),
+            hotkey_string: binding.to_string(),
+            is_pressed,
+            mode,
+            hold_threshold: HOLD_THRESHOLD,
+            external: false,
+        }
+    }
+
+    fn stop_post_process(effect: &Option<Effect>) -> Option<bool> {
+        match effect {
+            Some(Effect::Stop { post_process, .. }) => Some(*post_process),
+            _ => None,
+        }
+    }
+
+    /// ON → OFF: a session started with post-processing can be switched to
+    /// raw mid-recording; the Stop effect carries the toggled choice.
+    #[test]
+    fn post_process_toggle_on_to_off_during_toggle_recording() {
+        let mode = ShortcutActivation::Toggle;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        assert!(matches!(
+            state.on_input(xinput(OTHER, mode, true), t0),
+            Some(Effect::Start { .. })
+        ));
+        assert_eq!(state.session_post_process, Some(true));
+
+        // The other binding flips the session to raw; recording continues.
+        assert!(matches!(
+            state.on_input(xinput(BINDING, mode, true), t0 + ms(200)),
+            Some(Effect::PostProcessToggled { enabled: false })
+        ));
+        assert_eq!(state.session_post_process, Some(false));
+        assert_eq!(state.stage, Stage::Recording(OTHER.to_string()));
+
+        // Stopping locks the toggled choice into the Stop effect.
+        let effect = state.on_input(xinput(OTHER, mode, true), t0 + ms(400));
+        assert_eq!(stop_post_process(&effect), Some(false));
+        assert_eq!(state.stage, Stage::Processing);
+        assert_eq!(state.session_post_process, None);
+    }
+
+    /// OFF → ON: a raw session can be switched to post-processing mid-recording.
+    #[test]
+    fn post_process_toggle_off_to_on_during_toggle_recording() {
+        let mode = ShortcutActivation::Toggle;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        assert!(matches!(
+            state.on_input(xinput(BINDING, mode, true), t0),
+            Some(Effect::Start { .. })
+        ));
+        assert_eq!(state.session_post_process, Some(false));
+
+        assert!(matches!(
+            state.on_input(xinput(OTHER, mode, true), t0 + ms(200)),
+            Some(Effect::PostProcessToggled { enabled: true })
+        ));
+
+        let effect = state.on_input(xinput(BINDING, mode, true), t0 + ms(400));
+        assert_eq!(stop_post_process(&effect), Some(true));
+    }
+
+    /// Several rapid toggles: the last flip before recording ends wins.
+    #[test]
+    fn post_process_multiple_toggles_last_flip_wins() {
+        let mode = ShortcutActivation::Toggle;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        state.on_input(xinput(OTHER, mode, true), t0);
+        assert_eq!(state.session_post_process, Some(true));
+
+        // OFF → ON → OFF via the other binding (spaced past DEBOUNCE).
+        assert!(matches!(
+            state.on_input(xinput(BINDING, mode, true), t0 + ms(200)),
+            Some(Effect::PostProcessToggled { enabled: false })
+        ));
+        assert!(matches!(
+            state.on_input(xinput(BINDING, mode, true), t0 + ms(400)),
+            Some(Effect::PostProcessToggled { enabled: true })
+        ));
+        assert!(matches!(
+            state.on_input(xinput(BINDING, mode, true), t0 + ms(600)),
+            Some(Effect::PostProcessToggled { enabled: false })
+        ));
+
+        let effect = state.on_input(xinput(OTHER, mode, true), t0 + ms(800));
+        assert_eq!(stop_post_process(&effect), Some(false));
+    }
+
+    /// A toggle arriving after recording stopped must not change the finished
+    /// session: the choice was already locked into its Stop effect. (A press
+    /// during Processing may still queue a *new* session per the existing
+    /// busy-drain rules — that is out of scope here; what matters is no
+    /// PostProcessToggled effect and no session state.)
+    #[test]
+    fn post_process_toggle_after_stop_changes_nothing_for_that_session() {
+        let mode = ShortcutActivation::Toggle;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        state.on_input(xinput(BINDING, mode, true), t0);
+        let effect = state.on_input(xinput(BINDING, mode, true), t0 + ms(200));
+        assert_eq!(stop_post_process(&effect), Some(false));
+        assert_eq!(state.stage, Stage::Processing);
+
+        let effect = state.on_input(xinput(OTHER, mode, true), t0 + ms(400));
+        assert!(
+            !matches!(effect, Some(Effect::PostProcessToggled { .. })),
+            "no toggle may fire once recording ended"
+        );
+        assert_eq!(state.session_post_process, None);
+    }
+
+    /// Once post-processing has started (still `Processing` stage), further
+    /// toggle presses are ignored for that session.
+    #[test]
+    fn post_process_toggle_once_processing_started_is_ignored() {
+        let mode = ShortcutActivation::Toggle;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        state.on_input(xinput(OTHER, mode, true), t0);
+        let effect = state.on_input(xinput(OTHER, mode, true), t0 + ms(200));
+        assert_eq!(stop_post_process(&effect), Some(true));
+
+        for at in [400, 600, 800] {
+            let effect = state.on_input(xinput(BINDING, mode, true), t0 + ms(at));
+            assert!(
+                !matches!(effect, Some(Effect::PostProcessToggled { .. })),
+                "toggle during processing must be ignored"
+            );
+        }
+        assert_eq!(state.session_post_process, None);
+    }
+
+    /// Hold / push-to-talk sessions never participate: the other binding is
+    /// ignored and the Stop effect keeps the seeded choice.
+    #[test]
+    fn post_process_toggle_ignored_in_hold_mode() {
+        let mode = ShortcutActivation::PushToTalk;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        assert!(matches!(
+            state.on_input(xinput(BINDING, mode, true), t0),
+            Some(Effect::Start { .. })
+        ));
+        assert!(!state.is_locked());
+
+        assert!(
+            state
+                .on_input(xinput(OTHER, mode, true), t0 + ms(200))
+                .is_none(),
+            "hold mode must ignore the other binding"
+        );
+        assert_eq!(state.session_post_process, Some(false));
+
+        assert!(
+            state
+                .on_input(xinput(BINDING, mode, false), t0 + ms(300))
+                .is_none(),
+            "release should be deferred, not fired"
+        );
+        let effect = state.on_grace_expired();
+        assert_eq!(stop_post_process(&effect), Some(false));
+    }
+
+    /// Hold-or-toggle tap (toggle-like: locked) participates; a genuine hold
+    /// (still held: unlocked) does not.
+    #[test]
+    fn post_process_toggle_works_for_auto_tap_but_not_for_auto_hold() {
+        let mode = ShortcutActivation::HoldOrToggle;
+
+        // Tap path: release classifies as a tap → locked → toggle allowed.
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+        state.on_input(xinput(BINDING, mode, true), t0);
+        state.on_input(xinput(BINDING, mode, false), t0 + ms(100));
+        assert!(state.on_grace_expired().is_none());
+        assert!(state.is_locked());
+
+        assert!(matches!(
+            state.on_input(xinput(OTHER, mode, true), t0 + ms(500)),
+            Some(Effect::PostProcessToggled { enabled: true })
+        ));
+        let effect = state.on_input(xinput(BINDING, mode, true), t0 + ms(900));
+        assert_eq!(stop_post_process(&effect), Some(true));
+
+        // Hold path: key still down → unlocked → toggle ignored.
+        let mut state = CoordinatorState::new();
+        state.on_input(xinput(BINDING, mode, true), t0);
+        assert!(!state.is_locked());
+        assert!(
+            state
+                .on_input(xinput(OTHER, mode, true), t0 + ms(200))
+                .is_none(),
+            "an unlocked (held) auto session must ignore the other binding"
+        );
+        assert_eq!(state.session_post_process, Some(false));
+    }
+
+    /// The toggle never persists: the next session seeds its choice from its
+    /// own starting binding again.
+    #[test]
+    fn post_process_toggle_does_not_change_next_session_default() {
+        let mode = ShortcutActivation::Toggle;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        // Session 1 starts ON, toggles OFF, stops raw.
+        state.on_input(xinput(OTHER, mode, true), t0);
+        state.on_input(xinput(BINDING, mode, true), t0 + ms(200));
+        let effect = state.on_input(xinput(OTHER, mode, true), t0 + ms(400));
+        assert_eq!(stop_post_process(&effect), Some(false));
+
+        // Session 2 starts ON again — the toggle did not persist.
+        state.on_processing_finished();
+        assert!(matches!(
+            state.on_input(xinput(OTHER, mode, true), t0 + ms(1000)),
+            Some(Effect::Start { .. })
+        ));
+        assert_eq!(state.session_post_process, Some(true));
     }
 }

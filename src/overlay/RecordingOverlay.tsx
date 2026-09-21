@@ -34,6 +34,16 @@ const RecordingOverlay: React.FC = () => {
   const [phase, setPhase] = useState<StreamPhase>("listening");
   const [workKind, setWorkKind] = useState<StreamWorkKind>("transcribing");
   const [elapsed, setElapsed] = useState(0);
+  // Transient mid-recording post-processing switch feedback: `true` = switched
+  // to post-processing, `false` = switched to raw transcript, `null` = no
+  // notice. Set by the backend `post-process-toggled` event, auto-cleared
+  // after a short delay so the overlay falls back to the recording state.
+  const [postProcessNotice, setPostProcessNotice] = useState<boolean | null>(
+    null,
+  );
+  const postProcessTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   // Bumped on each new streaming session so the Live card remounts fresh (replays
   // the pop-in, and never animates in from the previous panel's open size).
   const [session, setSession] = useState(0);
@@ -86,12 +96,25 @@ const RecordingOverlay: React.FC = () => {
           setElapsed(0);
           setSession((s) => s + 1); // remount the card fresh for this session
         }
+        // A new overlay state supersedes any switch notice (a fresh recording
+        // seeds its own choice; transcribing/processing means the choice is
+        // locked).
+        if (postProcessTimeoutRef.current) {
+          clearTimeout(postProcessTimeoutRef.current);
+          postProcessTimeoutRef.current = null;
+        }
+        setPostProcessNotice(null);
         setIsVisible(true);
       });
 
       const unlistenHide = await listen("hide-overlay", () => {
         setIsVisible(false);
         setCaptureReady(false);
+        if (postProcessTimeoutRef.current) {
+          clearTimeout(postProcessTimeoutRef.current);
+          postProcessTimeoutRef.current = null;
+        }
+        setPostProcessNotice(null);
       });
 
       const unlistenReady = await listen("recording-ready", () => {
@@ -121,6 +144,20 @@ const RecordingOverlay: React.FC = () => {
         if (payload.kind) setWorkKind(payload.kind);
       });
 
+      const unlistenPostProcess = await listen<boolean>(
+        "post-process-toggled",
+        (event) => {
+          if (postProcessTimeoutRef.current) {
+            clearTimeout(postProcessTimeoutRef.current);
+          }
+          setPostProcessNotice(event.payload);
+          postProcessTimeoutRef.current = setTimeout(() => {
+            setPostProcessNotice(null);
+            postProcessTimeoutRef.current = null;
+          }, 1800);
+        },
+      );
+
       return () => {
         unlistenShow();
         unlistenHide();
@@ -128,6 +165,10 @@ const RecordingOverlay: React.FC = () => {
         unlistenLevel();
         unlistenStream();
         unlistenPhase();
+        unlistenPostProcess();
+        if (postProcessTimeoutRef.current) {
+          clearTimeout(postProcessTimeoutRef.current);
+        }
       };
     };
 
@@ -227,6 +268,23 @@ const RecordingOverlay: React.FC = () => {
     </div>
   );
 
+  // Brief mid-recording post-processing switch notice (dot | label | cancel) —
+  // same grid as the other rows, so the pill keeps its size and the message
+  // simply fades in over the waveform, then falls back to recording.
+  const switchNoticeRow = (enabled: boolean) => (
+    <div className="sbase">
+      <div className="sbase-l">
+        <span className={`sdot ${captureReady ? "ready" : "arming"}`} />
+      </div>
+      <span className="spp-label">
+        {enabled
+          ? t("overlay.switchToPostProcessing")
+          : t("overlay.switchToRawTranscript")}
+      </span>
+      <div className="sbase-r">{cancelBtn}</div>
+    </div>
+  );
+
   // ---- Live overlay: a pill that sculpts open into a panel ----
   if (state === "streaming") {
     const hasText =
@@ -273,7 +331,9 @@ const RecordingOverlay: React.FC = () => {
                   : t("overlay.transcribing"),
                 true,
               )
-            : listeningRow(open, true)}
+            : postProcessNotice !== null
+              ? switchNoticeRow(postProcessNotice)
+              : listeningRow(open, true)}
         </div>
       </div>
     );
@@ -296,7 +356,13 @@ const RecordingOverlay: React.FC = () => {
       <div
         className={`scard compact ${working && isVisible ? "cworking" : ""}`}
       >
-        {working ? workingRow(workLabel, true) : listeningRow(false, true)}
+        {working ? (
+          workingRow(workLabel, true)
+        ) : postProcessNotice !== null ? (
+          switchNoticeRow(postProcessNotice)
+        ) : (
+          listeningRow(false, true)
+        )}
       </div>
     </div>
   );
