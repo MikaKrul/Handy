@@ -227,6 +227,10 @@
           "push_to_talk": "Nahrává, dokud držíte zkratku",
           "toggle": "Klepněte na zkratku pro zahájení nahrávání, klepněte znovu pro zastavení"
         }
+      },
+      "stopWithEnter": {
+        "label": "Zastavit pomocí Enter",
+        "description": "Stisknutí klávesy Enter během nahrávání ho zastaví, stejně jako opětovné stisknutí klávesové zkratky pro přepis. Přepis se poté vloží, případně se nejprve dodatečně zpracuje, pokud nahrávání začalo s dodatečným zpracováním."
       }
     },
     "sound": {

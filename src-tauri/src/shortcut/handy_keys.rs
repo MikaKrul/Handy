@@ -457,8 +457,15 @@ pub fn init_shortcuts(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Register the cancel shortcut (called when recording starts)
-pub fn register_cancel_shortcut(app: &AppHandle) {
+/// Register the dynamic recording shortcuts (called when recording starts):
+/// stop (Enter) first, then cancel (Escape), in a single async task.
+///
+/// One task keeps the order deterministic — Enter is the primary finish
+/// interaction, so it gets priority when a keypress races recording start.
+/// Async (rather than blocking the caller) for the same deadlock reason as
+/// the old individual registrations. Skips stop when Stop-with-Enter is
+/// disabled. Disabled entirely on Linux due to instability.
+pub fn register_recording_shortcuts(app: &AppHandle) {
     // Disabled on Linux due to instability
     #[cfg(target_os = "linux")]
     {
@@ -470,8 +477,15 @@ pub fn register_cancel_shortcut(app: &AppHandle) {
     {
         let app_clone = app.clone();
         tauri::async_runtime::spawn(async move {
-            if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned() {
-                if let Some(state) = app_clone.try_state::<HandyKeysState>() {
+            if let Some(state) = app_clone.try_state::<HandyKeysState>() {
+                if get_settings(&app_clone).stop_with_enter {
+                    if let Err(e) = state.register(&super::stop_shortcut_binding()) {
+                        error!("Failed to register stop shortcut: {}", e);
+                    }
+                }
+                if let Some(cancel_binding) =
+                    get_settings(&app_clone).bindings.get("cancel").cloned()
+                {
                     if let Err(e) = state.register(&cancel_binding) {
                         error!("Failed to register cancel shortcut: {}", e);
                     }
@@ -497,6 +511,50 @@ pub fn unregister_cancel_shortcut(app: &AppHandle) {
                 if let Some(state) = app_clone.try_state::<HandyKeysState>() {
                     let _ = state.unregister(&cancel_binding);
                 }
+            }
+        });
+    }
+}
+
+/// Register the stop (Enter) shortcut (called when recording starts).
+/// Dynamically registered like `cancel`, so Enter is only swallowed while
+/// recording. Disabled on Linux for the same dynamic-registration
+/// instability that disables `cancel` there.
+pub fn register_stop_shortcut(app: &AppHandle) {
+    // Disabled on Linux due to instability
+    #[cfg(target_os = "linux")]
+    {
+        let _ = app;
+        return;
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let app_clone = app.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Some(state) = app_clone.try_state::<HandyKeysState>() {
+                if let Err(e) = state.register(&super::stop_shortcut_binding()) {
+                    error!("Failed to register stop shortcut: {}", e);
+                }
+            }
+        });
+    }
+}
+
+/// Unregister the stop (Enter) shortcut (called when recording stops)
+pub fn unregister_stop_shortcut(app: &AppHandle) {
+    #[cfg(target_os = "linux")]
+    {
+        let _ = app;
+        return;
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let app_clone = app.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Some(state) = app_clone.try_state::<HandyKeysState>() {
+                let _ = state.unregister(&super::stop_shortcut_binding());
             }
         });
     }

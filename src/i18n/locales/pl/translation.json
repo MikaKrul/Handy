@@ -227,6 +227,10 @@
           "push_to_talk": "Nagrywa, dopóki trzymasz skrót",
           "toggle": "Dotknij skrótu, aby rozpocząć nagrywanie, dotknij ponownie, aby zatrzymać"
         }
+      },
+      "stopWithEnter": {
+        "label": "Zatrzymaj klawiszem Enter",
+        "description": "Naciśnięcie Enter podczas nagrywania zatrzymuje je, tak samo jak ponowne naciśnięcie skrótu transkrypcji. Transkrypcja jest następnie wklejana, a jeśli nagrywanie rozpoczęto z przetwarzaniem końcowym, najpierw jest przetwarzana."
       }
     },
     "sound": {

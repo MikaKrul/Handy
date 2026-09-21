@@ -227,6 +227,10 @@
           "push_to_talk": "Nimmt auf, solange die Tastenkombination gedrückt bleibt",
           "toggle": "Tastenkombination antippen, um die Aufnahme zu starten, erneut antippen zum Stoppen"
         }
+      },
+      "stopWithEnter": {
+        "label": "Mit Enter stoppen",
+        "description": "Enter während der Aufnahme beendet sie, genauso wie ein erneutes Drücken des Transkriptionskürzels. Die Transkription wird danach eingefügt, oder zuerst nachbearbeitet, wenn die Aufnahme mit Nachbearbeitung gestartet wurde."
       }
     },
     "sound": {
