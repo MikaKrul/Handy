@@ -2075,4 +2075,44 @@ mod tests {
         ));
         assert_eq!(state.session_post_process, Some(false));
     }
+
+    /// Full session lifecycle through the real machine: start raw, switch ON
+    /// mid-recording, stop with the choice locked in, drain the pipeline, and
+    /// start the next session — which seeds its own choice again. This is the
+    /// machine-level span of the `Stop → action → output` route: the value the
+    /// executor hands to `stop_with_post_process` is exactly what the session
+    /// locked at stop time.
+    #[test]
+    fn post_process_full_session_lifecycle_toggle_stop_drain_reseed() {
+        let mode = ShortcutActivation::Toggle;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        assert!(matches!(
+            state.on_input(xinput(BINDING, mode, true), t0),
+            Some(Effect::Start { .. })
+        ));
+        assert_eq!(state.session_post_process, Some(false));
+
+        assert!(matches!(
+            state.on_input(xinput(OTHER, mode, true), t0 + ms(200)),
+            Some(Effect::PostProcessToggled { enabled: true })
+        ));
+        assert_eq!(state.stage, Stage::Recording(BINDING.to_string()));
+
+        let effect = state.on_input(xinput(BINDING, mode, true), t0 + ms(400));
+        assert_eq!(stop_post_process(&effect), Some(true));
+        assert_eq!(state.stage, Stage::Processing);
+
+        // Nothing pending: the drain returns to idle without side effects.
+        assert!(state.on_processing_finished().is_none());
+        assert_eq!(state.stage, Stage::Idle);
+
+        assert!(matches!(
+            state.on_input(xinput(BINDING, mode, true), t0 + ms(1000)),
+            Some(Effect::Start { .. })
+        ));
+        assert_eq!(state.session_post_process, Some(false));
+        assert_eq!(state.session_mode, Some(mode));
+    }
 }

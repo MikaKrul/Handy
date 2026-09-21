@@ -702,7 +702,9 @@
   },
   "overlay": {
     "transcribing": "ट्रान्सक्राइब गरिँदैछ...",
-    "processing": "प्रशोधन गरिँदैछ..."
+    "processing": "प्रशोधन गरिँदैछ...",
+    "switchToPostProcessing": "पोस्ट-प्रोसेसिङमा स्विच गर्नुहोस्",
+    "switchToRawTranscript": "कच्चा ट्रान्सक्रिप्टमा स्विच गर्नुहोस्"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} ले 1 सर्टकट रोकिरहेको हुन सक्छ",

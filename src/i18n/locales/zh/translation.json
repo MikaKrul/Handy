@@ -699,7 +699,9 @@
   },
   "overlay": {
     "transcribing": "正在转录...",
-    "processing": "处理中..."
+    "processing": "处理中...",
+    "switchToPostProcessing": "切换到后期处理",
+    "switchToRawTranscript": "切换到原始转录"
   },
   "whatsNew": {
     "title": "Handy v{{version}} 新功能"
