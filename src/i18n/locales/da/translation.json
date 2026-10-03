@@ -207,6 +207,10 @@
           "push_to_talk": "Optager, mens du holder genvejen nede",
           "toggle": "Tryk på genvejen for at starte optagelsen, tryk igen for at stoppe"
         }
+      },
+      "stopWithEnter": {
+        "label": "Stop med Enter",
+        "description": "Hvis du trykker på Enter under optagelsen, stopper den, præcis som at trykke på transskriptionsgenvejen igen. Transskriptionen indsættes derefter, eller efterbehandles først, hvis optagelsen startede med efterbehandling."
       }
     },
     "models": {

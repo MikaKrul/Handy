@@ -227,6 +227,10 @@
           "push_to_talk": "Ghi âm trong lúc bạn giữ phím tắt",
           "toggle": "Nhấn phím tắt để bắt đầu ghi âm, nhấn lại để dừng"
         }
+      },
+      "stopWithEnter": {
+        "label": "Dừng bằng Enter",
+        "description": "Nhấn Enter trong khi ghi âm sẽ dừng lại, giống hệt như nhấn lại phím tắt phiên âm. Bản ghi sau đó được dán, hoặc được xử lý sau trước nếu bản ghi bắt đầu cùng xử lý sau."
       }
     },
     "sound": {
