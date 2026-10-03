@@ -471,8 +471,18 @@ pub struct AppSettings {
     pub post_process_selected_prompt_id: Option<String>,
     #[serde(default)]
     pub mute_while_recording: bool,
+    /// Pause whatever is playing (music, video) for the duration of a
+    /// recording and resume it afterwards. See `media_control`.
+    #[serde(default)]
+    pub pause_media_while_recording: bool,
     #[serde(default)]
     pub append_trailing_space: bool,
+    /// Stop the active recording by pressing Enter — behaves exactly like
+    /// pressing the transcribe shortcut a second time (transcribe, then
+    /// post-process when the session started with post-processing, then
+    /// paste). The Enter keystroke itself is swallowed while recording.
+    #[serde(default = "default_stop_with_enter")]
+    pub stop_with_enter: bool,
     #[serde(default = "default_app_language")]
     pub app_language: String,
     #[serde(default = "default_theme")]
@@ -629,6 +639,10 @@ fn default_paste_delay_after_ms() -> u64 {
 
 fn default_auto_submit() -> bool {
     false
+}
+
+fn default_stop_with_enter() -> bool {
+    true
 }
 
 fn default_history_limit() -> usize {
@@ -912,7 +926,7 @@ pub fn get_default_settings() -> AppSettings {
         ShortcutBinding {
             id: "transcribe_with_post_process".to_string(),
             name: "Transcribe with Post-Processing".to_string(),
-            description: "Converts your speech into text and applies AI post-processing."
+            description: "Start transcription with post-processing, or switch post-processing on/off during a toggle-based recording."
                 .to_string(),
             default_binding: default_post_process_shortcut.to_string(),
             current_binding: default_post_process_shortcut.to_string(),
@@ -971,7 +985,9 @@ pub fn get_default_settings() -> AppSettings {
         post_process_prompts: default_post_process_prompts(),
         post_process_selected_prompt_id: None,
         mute_while_recording: false,
+        pause_media_while_recording: false,
         append_trailing_space: false,
+        stop_with_enter: default_stop_with_enter(),
         app_language: default_app_language(),
         theme: default_theme(),
         experimental_enabled: false,

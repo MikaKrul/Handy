@@ -88,6 +88,8 @@ pub fn cancel_current_operation(app: &AppHandle) {
 
     // Unregister the cancel shortcut asynchronously
     shortcut::unregister_cancel_shortcut(app);
+    // Unregister the Enter-to-stop shortcut asynchronously
+    shortcut::unregister_stop_shortcut(app);
 
     // Cancel any ongoing recording
     let audio_manager = app.state::<Arc<AudioRecordingManager>>();
@@ -101,6 +103,10 @@ pub fn cancel_current_operation(app: &AppHandle) {
     // Update tray icon and hide overlay
     set_tray_state(app, crate::tray::TrayIconState::Idle);
     hide_recording_overlay(app);
+
+    // Resume any media we paused for this recording
+    app.state::<Arc<crate::media_control::MediaController>>()
+        .resume_paused_media();
 
     // Unload model if immediate unload is enabled
     tm.maybe_unload_immediately("cancellation");

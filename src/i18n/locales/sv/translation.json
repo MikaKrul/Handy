@@ -207,6 +207,10 @@
           "push_to_talk": "Spelar in så länge du håller genvägen nedtryckt",
           "toggle": "Tryck på genvägen för att starta inspelningen, tryck igen för att stoppa"
         }
+      },
+      "stopWithEnter": {
+        "label": "Stoppa med Enter",
+        "description": "Att trycka på Enter under inspelningen stoppar den, precis som att trycka på transkriberingsgenvägen igen. Transkriberingen klistras sedan in, eller efterbehandlas först om inspelningen startade med efterbehandling."
       }
     },
     "models": {
@@ -242,6 +246,10 @@
         "description": "Välj vilken ingångskanal du vill spela in från. Använd detta om ditt ljudgränssnitt har flera ingångar.",
         "average": "Medelvärde av alla kanaler",
         "channel": "Kanal {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "Pausa media under inspelning",
+        "description": "Pausa musik- eller videouppspelning under inspelningen och återuppta den efteråt"
       },
       "audioFeedback": {
         "label": "Ljudåterkoppling",
@@ -708,7 +716,9 @@
   },
   "overlay": {
     "transcribing": "Transkriberar...",
-    "processing": "Bearbetar..."
+    "processing": "Bearbetar...",
+    "switchToPostProcessing": "Efterbehandling på",
+    "switchToRawTranscript": "Efterbehandling av"
   },
   "whatsNew": {
     "title": "Nytt i Handy v{{version}}"

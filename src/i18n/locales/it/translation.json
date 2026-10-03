@@ -227,6 +227,10 @@
           "push_to_talk": "Registra finché tieni premuta la scorciatoia",
           "toggle": "Tocca la scorciatoia per avviare la registrazione, tocca di nuovo per fermarla"
         }
+      },
+      "stopWithEnter": {
+        "label": "Interrompi con Invio",
+        "description": "Premere Invio durante la registrazione la interrompe, proprio come premere di nuovo la scorciatoia di trascrizione. La trascrizione viene poi incollata, o prima post-elaborata se la registrazione è iniziata con la post-elaborazione."
       }
     },
     "sound": {
@@ -242,6 +246,10 @@
         "description": "Seleziona il canale di ingresso da cui registrare. Usa questa opzione se l'interfaccia audio dispone di più ingressi.",
         "average": "Media di tutti i canali",
         "channel": "Canale {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "Metti in pausa i media durante la registrazione",
+        "description": "Mettere in pausa la riproduzione di musica o video durante la registrazione e riprenderla al termine"
       },
       "audioFeedback": {
         "label": "Feedback Audio",
@@ -708,7 +716,9 @@
   },
   "overlay": {
     "transcribing": "Trascrizione...",
-    "processing": "Elaborazione..."
+    "processing": "Elaborazione...",
+    "switchToPostProcessing": "Post-elaborazione attiva",
+    "switchToRawTranscript": "Post-elaborazione non attiva"
   },
   "whatsNew": {
     "title": "Novità in Handy v{{version}}"

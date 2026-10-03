@@ -207,6 +207,10 @@
           "push_to_talk": "Records while you hold the shortcut",
           "toggle": "Tap the shortcut to start recording, tap again to stop"
         }
+      },
+      "stopWithEnter": {
+        "label": "Stop with Enter",
+        "description": "Pressing Enter while recording stops it, exactly like pressing the transcribe shortcut again. The transcription is then pasted, or post-processed first when the recording started with post-processing."
       }
     },
     "models": {
@@ -242,6 +246,10 @@
         "description": "Select which input channel to record from. Use this if your audio interface has multiple inputs.",
         "average": "Average all channels",
         "channel": "Channel {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "Pause Media While Recording",
+        "description": "Pause music or video playback while recording and resume it afterwards"
       },
       "audioFeedback": {
         "label": "Audio Feedback",
@@ -445,7 +453,7 @@
         "title": "Prompt",
         "selectedPrompt": {
           "title": "Selected Prompt",
-          "description": "Select a template for refining transcriptions or create a new one. Use ${output} inside the prompt text to reference the captured transcript."
+          "description": "Select a template for refining transcriptions or create a new one. Use ${output} to reference the captured transcript and ${custom_words} to include your custom words list."
         },
         "noPrompts": "No prompts available",
         "selectPrompt": "Select a prompt",
@@ -454,7 +462,7 @@
         "promptLabelPlaceholder": "Enter prompt name",
         "promptInstructions": "Prompt Instructions",
         "promptInstructionsPlaceholder": "Write the instructions to run after transcription. Example: Improve grammar and clarity for the following text: ${output}",
-        "promptTip": "Tip: Use <code>${output}</code> to insert the transcribed text in your prompt.",
+        "promptTip": "Tip: Use <code>${output}</code> to insert the transcribed text and <code>${custom_words}</code> to include your custom words list.",
         "updatePrompt": "Update Prompt",
         "deletePrompt": "Delete Prompt",
         "createPrompt": "Create Prompt",
@@ -711,7 +719,9 @@
   },
   "overlay": {
     "transcribing": "Transcribing...",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "switchToPostProcessing": "Post-processing on",
+    "switchToRawTranscript": "Post-processing off"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} may be blocking 1 shortcut",

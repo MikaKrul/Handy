@@ -1,0 +1,20 @@
+name: "Windows Build"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      contents: write
+
+    uses: ./.github/workflows/build-nosigning.yml
+
+    with:
+      platform: windows-latest
+      target: x86_64-pc-windows-msvc
+      build-args: ""
+      upload-artifacts: true
+      sign-binaries: false
+
+    secrets: inherit

@@ -207,6 +207,10 @@
           "push_to_talk": "按住快捷鍵期間錄音",
           "toggle": "輕按快捷鍵開始錄音，再次輕按停止"
         }
+      },
+      "stopWithEnter": {
+        "label": "用 Enter 停止",
+        "description": "在錄音時按下 Enter 會停止錄音，效果與再次按下轉錄快捷鍵相同。隨後會貼上轉錄文字；若錄音是以後期處理模式開始，則會先進行後期處理。"
       }
     },
     "models": {
@@ -242,6 +246,10 @@
         "description": "選擇要錄音的輸入聲道。如果您的音訊介面有多個輸入，請使用此選項。",
         "average": "所有聲道的平均值",
         "channel": "聲道 {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "錄製時暫停媒體",
+        "description": "錄製期間暫停音樂或影片播放，結束後繼續播放"
       },
       "audioFeedback": {
         "label": "聲音回饋",
@@ -708,7 +716,9 @@
   },
   "overlay": {
     "transcribing": "正在轉錄...",
-    "processing": "處理中..."
+    "processing": "處理中...",
+    "switchToPostProcessing": "後期處理已開啟",
+    "switchToRawTranscript": "後期處理已關閉"
   },
   "whatsNew": {
     "title": "Handy v{{version}} 新功能"

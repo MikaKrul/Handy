@@ -207,6 +207,10 @@
           "push_to_talk": "Optager, mens du holder genvejen nede",
           "toggle": "Tryk på genvejen for at starte optagelsen, tryk igen for at stoppe"
         }
+      },
+      "stopWithEnter": {
+        "label": "Stop med Enter",
+        "description": "Hvis du trykker på Enter under optagelsen, stopper den, præcis som at trykke på transskriptionsgenvejen igen. Transskriptionen indsættes derefter, eller efterbehandles først, hvis optagelsen startede med efterbehandling."
       }
     },
     "models": {
@@ -242,6 +246,10 @@
         "description": "Vælg, hvilken inputkanal der skal optages fra. Brug dette, hvis din lydgrænseflade har flere indgange.",
         "average": "Gennemsnit af alle kanaler",
         "channel": "Kanal {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "Sæt medier på pause under optagelse",
+        "description": "Sæt musik- eller videoafspilning på pause under optagelsen, og genoptag den bagefter"
       },
       "audioFeedback": {
         "label": "Lydfeedback",
@@ -711,7 +719,9 @@
   },
   "overlay": {
     "transcribing": "Transskriberer...",
-    "processing": "Behandler..."
+    "processing": "Behandler...",
+    "switchToPostProcessing": "Efterbehandling til",
+    "switchToRawTranscript": "Efterbehandling fra"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} blokerer muligvis 1 genvej",

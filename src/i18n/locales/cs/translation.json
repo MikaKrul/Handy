@@ -227,6 +227,10 @@
           "push_to_talk": "Nahrává, dokud držíte zkratku",
           "toggle": "Klepněte na zkratku pro zahájení nahrávání, klepněte znovu pro zastavení"
         }
+      },
+      "stopWithEnter": {
+        "label": "Zastavit pomocí Enter",
+        "description": "Stisknutí klávesy Enter během nahrávání ho zastaví, stejně jako opětovné stisknutí klávesové zkratky pro přepis. Přepis se poté vloží, případně se nejprve dodatečně zpracuje, pokud nahrávání začalo s dodatečným zpracováním."
       }
     },
     "sound": {
@@ -242,6 +246,10 @@
         "description": "Vyberte vstupní kanál, ze kterého se má nahrávat. Tuto možnost použijte, pokud má vaše zvukové rozhraní více vstupů.",
         "average": "Průměr všech kanálů",
         "channel": "Kanál {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "Pozastavit média při nahrávání",
+        "description": "Pozastavení přehrávání hudby nebo videa během nahrávání a jeho obnovení po skončení"
       },
       "audioFeedback": {
         "label": "Zvuková odezva",
@@ -708,7 +716,9 @@
   },
   "overlay": {
     "transcribing": "Přepisuji...",
-    "processing": "Zpracovávám..."
+    "processing": "Zpracovávám...",
+    "switchToPostProcessing": "Postprocessing zapnut",
+    "switchToRawTranscript": "Postprocessing vypnut"
   },
   "whatsNew": {
     "title": "Novinky v Handy v{{version}}"

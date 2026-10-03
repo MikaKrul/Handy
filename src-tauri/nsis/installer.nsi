@@ -79,7 +79,7 @@ Var OldMainBinaryName
 Var PortableMode
 
 Name "${PRODUCTNAME}"
-BrandingText "${COPYRIGHT}"
+BrandingText "${PRODUCTNAME} - Speech to Text"
 OutFile "${OUTFILE}"
 
 ; We don't actually use this value as default install path,
@@ -129,20 +129,23 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
   !include MultiUser.nsh
 !endif
 
-; Installer icon
+; Installer icon & uninstaller icon
 !if "${INSTALLERICON}" != ""
   !define MUI_ICON "${INSTALLERICON}"
+  !define MUI_UNICON "${INSTALLERICON}"
 !endif
 
-; Installer sidebar image
+; Installer & uninstaller sidebar image
 !if "${SIDEBARIMAGE}" != ""
   !define MUI_WELCOMEFINISHPAGE_BITMAP "${SIDEBARIMAGE}"
+  !define MUI_UNWELCOMEFINISHPAGE_BITMAP "${SIDEBARIMAGE}"
 !endif
 
 ; Installer header image
 !if "${HEADERIMAGE}" != ""
   !define MUI_HEADERIMAGE
-  !define MUI_HEADERIMAGE_BITMAP  "${HEADERIMAGE}"
+  !define MUI_HEADERIMAGE_BITMAP "${HEADERIMAGE}"
+  !define MUI_HEADERIMAGE_RIGHT
 !endif
 
 ; Define registry key to store installer language

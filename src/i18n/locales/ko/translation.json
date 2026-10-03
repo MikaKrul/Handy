@@ -207,6 +207,10 @@
           "push_to_talk": "단축키를 누르고 있는 동안 녹음합니다",
           "toggle": "단축키를 탭하면 녹음을 시작하고, 다시 탭하면 중지합니다"
         }
+      },
+      "stopWithEnter": {
+        "label": "Enter로 중지",
+        "description": "녹음 중에 Enter를 누르면 받아쓰기 단축키를 다시 누른 것과 같이 중지됩니다. 이후 전사 텍스트가 붙여넣어지며, 후처리 모드로 시작한 경우 먼저 후처리됩니다."
       }
     },
     "sound": {
@@ -222,6 +226,10 @@
         "description": "녹음할 입력 채널을 선택하세요. 오디오 인터페이스에 입력이 여러 개 있는 경우 사용하세요.",
         "average": "모든 채널 평균",
         "channel": "채널 {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "녹음 중 미디어 일시정지",
+        "description": "녹음하는 동안 음악이나 동영상 재생을 일시정지하고 녹음이 끝나면 다시 재생"
       },
       "audioFeedback": {
         "label": "오디오 피드백",
@@ -708,7 +716,9 @@
   },
   "overlay": {
     "transcribing": "텍스트로 변환 중...",
-    "processing": "처리 중..."
+    "processing": "처리 중...",
+    "switchToPostProcessing": "후처리 켜짐",
+    "switchToRawTranscript": "후처리 꺼짐"
   },
   "whatsNew": {
     "title": "Handy v{{version}}의 새 소식"

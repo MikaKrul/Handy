@@ -207,6 +207,10 @@
           "push_to_talk": "Neemt op zolang je de sneltoets ingedrukt houdt",
           "toggle": "Tik op de sneltoets om de opname te starten, tik opnieuw om te stoppen"
         }
+      },
+      "stopWithEnter": {
+        "label": "Stop met Enter",
+        "description": "Als je tijdens het opnemen op Enter drukt, stopt de opname, net zoals wanneer je de transcribeersneltoets nog een keer indrukt. De transcriptie wordt daarna geplakt, of eerst nabewerkt als de opname met nabewerking is gestart."
       }
     },
     "models": {
@@ -242,6 +246,10 @@
         "description": "Selecteer het ingangskanaal waarvan moet worden opgenomen. Gebruik dit als je audio-interface meerdere ingangen heeft.",
         "average": "Gemiddelde van alle kanalen",
         "channel": "Kanaal {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "Media pauzeren tijdens opname",
+        "description": "Muziek- of videoweergave pauzeren tijdens de opname en daarna hervatten"
       },
       "audioFeedback": {
         "label": "Geluidsfeedback",
@@ -711,7 +719,9 @@
   },
   "overlay": {
     "transcribing": "Transcriberen...",
-    "processing": "Verwerken..."
+    "processing": "Verwerken...",
+    "switchToPostProcessing": "Post-processing aan",
+    "switchToRawTranscript": "Post-processing uit"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} blokkeert mogelijk 1 sneltoets",

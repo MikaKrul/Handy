@@ -227,6 +227,10 @@
           "push_to_talk": "Kısayolu basılı tuttuğunuz sürece kaydeder",
           "toggle": "Kaydı başlatmak için kısayola dokunun, durdurmak için tekrar dokunun"
         }
+      },
+      "stopWithEnter": {
+        "label": "Enter ile Durdur",
+        "description": "Kayıt sırasında Enter'a basmak, transkripsiyon kısayoluna ikinci kez basmakla aynı şekilde kaydı durdurur. Ardından metin yapıştırılır; kayıt son işlemeyle başlatıldıysa önce son işlem uygulanır."
       }
     },
     "sound": {
@@ -242,6 +246,10 @@
         "description": "Kayıt yapılacak giriş kanalını seçin. Ses arabiriminizde birden fazla giriş varsa bu seçeneği kullanın.",
         "average": "Tüm kanalların ortalaması",
         "channel": "Kanal {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "Kayıt sırasında medyayı duraklat",
+        "description": "Kayıt sırasında müzik veya video oynatmayı duraklatma ve sonrasında devam ettirme"
       },
       "audioFeedback": {
         "label": "Sesli Geri Bildirim",
@@ -708,7 +716,9 @@
   },
   "overlay": {
     "transcribing": "Transkribe ediliyor...",
-    "processing": "İşleniyor..."
+    "processing": "İşleniyor...",
+    "switchToPostProcessing": "Son işleme açık",
+    "switchToRawTranscript": "Son işleme kapalı"
   },
   "whatsNew": {
     "title": "Handy v{{version}} yenilikleri"

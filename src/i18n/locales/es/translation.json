@@ -227,6 +227,10 @@
           "push_to_talk": "Graba mientras mantienes pulsado el atajo",
           "toggle": "Toca el atajo para empezar a grabar, tócalo de nuevo para detener"
         }
+      },
+      "stopWithEnter": {
+        "label": "Detener con Enter",
+        "description": "Pulsar Enter durante la grabación la detiene, igual que pulsar el atajo de transcripción otra vez. La transcripción se pega después, o se posprocesa primero si la grabación empezó con posprocesamiento."
       }
     },
     "sound": {
@@ -242,6 +246,10 @@
         "description": "Selecciona el canal de entrada desde el que se grabará. Usa esta opción si tu interfaz de audio tiene varias entradas.",
         "average": "Promediar todos los canales",
         "channel": "Canal {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "Pausar reproducción durante la grabación",
+        "description": "Pausar la música o el vídeo durante la grabación y reanudarlo después"
       },
       "audioFeedback": {
         "label": "Retroalimentación de audio",
@@ -708,7 +716,9 @@
   },
   "overlay": {
     "transcribing": "Transcribiendo...",
-    "processing": "Procesando..."
+    "processing": "Procesando...",
+    "switchToPostProcessing": "Posprocesamiento activado",
+    "switchToRawTranscript": "Posprocesamiento desactivado"
   },
   "whatsNew": {
     "title": "Nuevo en Handy v{{version}}"
