@@ -247,6 +247,10 @@
         "average": "すべてのチャンネルの平均",
         "channel": "チャンネル{{n}}"
       },
+      "pauseMediaWhileRecording": {
+        "label": "録音中にメディアを一時停止",
+        "description": "録音中は音楽や動画の再生を一時停止し、終了後に再開"
+      },
       "audioFeedback": {
         "label": "オーディオフィードバック",
         "description": "録音の開始と停止時にサウンドを再生"
@@ -442,7 +446,26 @@
           "descriptionDefault": "選択したプロバイダーが提供するモデルを選択。",
           "placeholderWithOptions": "モデルを検索または選択",
           "placeholderNoOptions": "モデル名を入力",
-          "refreshModels": "モデルを更新"
+          "refreshModels": "モデルを更新",
+          "test": "テスト",
+          "testing": "テスト中...",
+          "testSuccess": "モデルは動作しています",
+          "retry": "再試行",
+          "dismiss": "閉じる",
+          "useCustomModel": "「{{model}}」を使用",
+          "errors": {
+            "authentication": "プロバイダーが API キーを拒否しました。",
+            "modelNotFound": "プロバイダーはこのモデルを認識していません。",
+            "rateLimited": "レート制限またはクォータを超過しました。",
+            "provider": "プロバイダーがエラーを返しました。",
+            "timeout": "プロバイダーが時間内に応答しませんでした。",
+            "unexpectedResponse": "モデルが予期しない内容を返しました。",
+            "emptyResponse": "プロバイダーが空の応答を返しました。",
+            "noProvider": "後処理のプロバイダーが選択されていません。",
+            "noModel": "後処理のモデルが選択されていません。",
+            "missingApiKey": "このプロバイダーの API キーは設定されていません。",
+            "unsupportedPlatform": "このプロバイダーはこのデバイスでは利用できません。"
+          }
         }
       },
       "prompts": {

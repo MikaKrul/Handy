@@ -247,6 +247,10 @@
         "average": "ממוצע של כל הערוצים",
         "channel": "ערוץ {{n}}"
       },
+      "pauseMediaWhileRecording": {
+        "label": "השהיית מדיה בזמן הקלטה",
+        "description": "השהיית נגינת מוזיקה או וידאו במהלך ההקלטה והמשכתה לאחר מכן"
+      },
       "audioFeedback": {
         "label": "משוב קולי",
         "description": "נגן צליל כשההקלטה מתחילה ומסתיימת"
@@ -442,7 +446,26 @@
           "descriptionDefault": "בחר מודל שהספק הנבחר חושף.",
           "placeholderWithOptions": "חפש או בחר מודל",
           "placeholderNoOptions": "הקלד שם מודל",
-          "refreshModels": "רענן מודלים"
+          "refreshModels": "רענן מודלים",
+          "test": "בדיקה",
+          "testing": "בבדיקה...",
+          "testSuccess": "המודל עובד",
+          "retry": "נסה שוב",
+          "dismiss": "סגור",
+          "useCustomModel": "השתמש ב-\"{{model}}\"",
+          "errors": {
+            "authentication": "הספק דחה את מפתח ה-API.",
+            "modelNotFound": "הספק אינו מכיר את המודל הזה.",
+            "rateLimited": "חריגה ממגבלת הקצב או מהמכסת.",
+            "provider": "הספק החזיר שגיאה.",
+            "timeout": "הספק לא ענה בזמן.",
+            "unexpectedResponse": "המודל ענה באופן לא צפוי.",
+            "emptyResponse": "הספק החזיר תשובה ריקה.",
+            "noProvider": "לא נבחר ספק לעיבוד-לאחר.",
+            "noModel": "לא נבחר מודל לעיבוד-לאחר.",
+            "missingApiKey": "לא מוגדר מפתח API עבור ספק זה.",
+            "unsupportedPlatform": "ספק זה אינו זמין במכשיר הזה."
+          }
         }
       },
       "prompts": {

@@ -247,6 +247,10 @@
         "average": "Gemiddelde van alle kanalen",
         "channel": "Kanaal {{n}}"
       },
+      "pauseMediaWhileRecording": {
+        "label": "Media pauzeren tijdens opname",
+        "description": "Muziek- of videoweergave pauzeren tijdens de opname en daarna hervatten"
+      },
       "audioFeedback": {
         "label": "Geluidsfeedback",
         "description": "Geluid afspelen wanneer de opname start en stopt"
@@ -442,7 +446,26 @@
           "descriptionDefault": "Kies een model dat door de geselecteerde provider wordt aangeboden.",
           "placeholderWithOptions": "Zoek of selecteer een model",
           "placeholderNoOptions": "Typ een modelnaam",
-          "refreshModels": "Modellen verversen"
+          "refreshModels": "Modellen verversen",
+          "test": "testen",
+          "testing": "testen...",
+          "testSuccess": "Model werkt",
+          "retry": "Opnieuw proberen",
+          "dismiss": "Sluiten",
+          "useCustomModel": "\"{{model}}\" gebruiken",
+          "errors": {
+            "authentication": "De provider heeft de API-sleutel geweigerd.",
+            "modelNotFound": "De provider kent dit model niet.",
+            "rateLimited": "Snelheidslimiet of quota overschreden.",
+            "provider": "De provider gaf een foutmelding terug.",
+            "timeout": "De provider gaf geen antwoord op tijd.",
+            "unexpectedResponse": "Het model gaf een onverwacht antwoord.",
+            "emptyResponse": "De provider gaf een leeg antwoord terug.",
+            "noProvider": "Er is geen post-processing-provider geselecteerd.",
+            "noModel": "Er is geen post-processing-model geselecteerd.",
+            "missingApiKey": "Er is geen API-sleutel ingesteld voor deze provider.",
+            "unsupportedPlatform": "Deze provider is niet beschikbaar op dit apparaat."
+          }
         }
       },
       "prompts": {

@@ -247,6 +247,10 @@
         "average": "Trung bình tất cả các kênh",
         "channel": "Kênh {{n}}"
       },
+      "pauseMediaWhileRecording": {
+        "label": "Tạm dừng phương tiện khi ghi âm",
+        "description": "Tạm dừng phát nhạc hoặc video trong khi ghi âm và tiếp tục phát sau đó"
+      },
       "audioFeedback": {
         "label": "Phản hồi âm thanh",
         "description": "Phát âm thanh khi bắt đầu và kết thúc ghi âm"
@@ -442,7 +446,26 @@
           "descriptionDefault": "Chọn một mô hình được cung cấp bởi nhà cung cấp đã chọn.",
           "placeholderWithOptions": "Tìm kiếm hoặc chọn một mô hình",
           "placeholderNoOptions": "Nhập tên mô hình",
-          "refreshModels": "Làm mới mô hình"
+          "refreshModels": "Làm mới mô hình",
+          "test": "kiểm tra",
+          "testing": "đang kiểm tra...",
+          "testSuccess": "Mô hình đang hoạt động",
+          "retry": "Thử lại",
+          "dismiss": "Đóng",
+          "useCustomModel": "Dùng \"{{model}}\"",
+          "errors": {
+            "authentication": "Nhà cung cấp đã từ chối khóa API.",
+            "modelNotFound": "Nhà cung cấp không biết mô hình này.",
+            "rateLimited": "Đã vượt giới hạn tần suất hoặc hạn mức.",
+            "provider": "Nhà cung cấp trả về lỗi.",
+            "timeout": "Nhà cung cấp không phản hồi kịp thời.",
+            "unexpectedResponse": "Mô hình trả lời không như mong đợi.",
+            "emptyResponse": "Nhà cung cấp trả về phản hồi trống.",
+            "noProvider": "Chưa chọn nhà cung cấp hậu xử lý.",
+            "noModel": "Chưa chọn mô hình hậu xử lý.",
+            "missingApiKey": "Chưa cấu hình khóa API cho nhà cung cấp này.",
+            "unsupportedPlatform": "Nhà cung cấp này không khả dụng trên thiết bị này."
+          }
         }
       },
       "prompts": {

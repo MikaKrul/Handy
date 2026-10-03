@@ -247,6 +247,10 @@
         "average": "Average all channels",
         "channel": "Channel {{n}}"
       },
+      "pauseMediaWhileRecording": {
+        "label": "Pause Media While Recording",
+        "description": "Pause music or video playback while recording and resume it afterwards"
+      },
       "audioFeedback": {
         "label": "Audio Feedback",
         "description": "Play sound when recording starts and stops"
@@ -442,14 +446,33 @@
           "descriptionDefault": "Choose a model exposed by the selected provider.",
           "placeholderWithOptions": "Search or select a model",
           "placeholderNoOptions": "Type a model name",
-          "refreshModels": "Refresh models"
+          "refreshModels": "Refresh models",
+          "test": "test",
+          "testing": "testing...",
+          "testSuccess": "Model is working",
+          "retry": "Retry",
+          "dismiss": "Dismiss",
+          "useCustomModel": "Use \"{{model}}\"",
+          "errors": {
+            "authentication": "The provider rejected the API key.",
+            "modelNotFound": "The provider does not know this model.",
+            "rateLimited": "Rate limit or quota exceeded.",
+            "provider": "The provider returned an error.",
+            "timeout": "The provider did not answer in time.",
+            "unexpectedResponse": "The model replied with something unexpected.",
+            "emptyResponse": "The provider returned an empty response.",
+            "noProvider": "No post-processing provider is selected.",
+            "noModel": "No post-processing model is selected.",
+            "missingApiKey": "No API key is configured for this provider.",
+            "unsupportedPlatform": "This provider is not available on this device."
+          }
         }
       },
       "prompts": {
         "title": "Prompt",
         "selectedPrompt": {
           "title": "Selected Prompt",
-          "description": "Select a template for refining transcriptions or create a new one. Use ${output} inside the prompt text to reference the captured transcript."
+          "description": "Select a template for refining transcriptions or create a new one. Use ${output} to reference the captured transcript and ${custom_words} to include your custom words list."
         },
         "noPrompts": "No prompts available",
         "selectPrompt": "Select a prompt",
@@ -458,7 +481,7 @@
         "promptLabelPlaceholder": "Enter prompt name",
         "promptInstructions": "Prompt Instructions",
         "promptInstructionsPlaceholder": "Write the instructions to run after transcription. Example: Improve grammar and clarity for the following text: ${output}",
-        "promptTip": "Tip: Use <code>${output}</code> to insert the transcribed text in your prompt.",
+        "promptTip": "Tip: Use <code>${output}</code> to insert the transcribed text and <code>${custom_words}</code> to include your custom words list.",
         "updatePrompt": "Update Prompt",
         "deletePrompt": "Delete Prompt",
         "createPrompt": "Create Prompt",
