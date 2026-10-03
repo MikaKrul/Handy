@@ -708,7 +708,9 @@
   },
   "overlay": {
     "transcribing": "文字起こし中…",
-    "processing": "処理中…"
+    "processing": "処理中…",
+    "switchToPostProcessing": "後処理オン",
+    "switchToRawTranscript": "後処理オフ"
   },
   "whatsNew": {
     "title": "Handy v{{version}} の新機能"
