@@ -438,7 +438,26 @@
           "descriptionDefault": "Vyberte model dostupný u vybraného poskytovatele.",
           "placeholderWithOptions": "Vyhledejte nebo vyberte model",
           "placeholderNoOptions": "Zadejte název modelu",
-          "refreshModels": "Obnovit modely"
+          "refreshModels": "Obnovit modely",
+          "test": "testovat",
+          "testing": "testování...",
+          "testSuccess": "Model funguje",
+          "retry": "Zkusit znovu",
+          "dismiss": "Zavřít",
+          "useCustomModel": "Použít „{{model}}“",
+          "errors": {
+            "authentication": "Poskytovatel odmítl API klíč.",
+            "modelNotFound": "Poskytovatel tento model nezná.",
+            "rateLimited": "Překročen limit požadavků nebo kvóta.",
+            "provider": "Poskytovatel vrátil chybu.",
+            "timeout": "Poskytovatel neodpověděl včas.",
+            "unexpectedResponse": "Model odpověděl neočekávaně.",
+            "emptyResponse": "Poskytovatel vrátil prázdnou odpověď.",
+            "noProvider": "Není vybran žádný poskytovatel post-processingu.",
+            "noModel": "Není vybran žádný model post-processingu.",
+            "missingApiKey": "Pro tento poskytovatele není nastaven žádný API klíč.",
+            "unsupportedPlatform": "Tento poskytovatel není na tomto zařízení k dispozici."
+          }
         }
       },
       "prompts": {

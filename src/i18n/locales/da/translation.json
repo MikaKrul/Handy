@@ -438,7 +438,26 @@
           "descriptionDefault": "Vælg en model, der udbydes af den valgte udbyder.",
           "placeholderWithOptions": "Søg eller vælg en model",
           "placeholderNoOptions": "Skriv et modelnavn",
-          "refreshModels": "Opdater modeller"
+          "refreshModels": "Opdater modeller",
+          "test": "test",
+          "testing": "tester...",
+          "testSuccess": "Modellen virker",
+          "retry": "Prøv igen",
+          "dismiss": "Luk",
+          "useCustomModel": "Brug \"{{model}}\"",
+          "errors": {
+            "authentication": "Udbyderen afviste API-nøglen.",
+            "modelNotFound": "Udbyderen kender ikke denne model.",
+            "rateLimited": "Hastighedsbegrænsning eller kvota er overskredet.",
+            "provider": "Udbyderen returnerede en fejl.",
+            "timeout": "Udbyderen svarede ikke i tide.",
+            "unexpectedResponse": "Modellen svarede uventet.",
+            "emptyResponse": "Udbyderen returnerede et tomt svar.",
+            "noProvider": "Ingen post-processing-udbyder er valgt.",
+            "noModel": "Ingen post-processing-model er valgt.",
+            "missingApiKey": "Der er ikke angivet en API-nøgle for denne udbyder.",
+            "unsupportedPlatform": "Denne udbyder er ikke tilgængelig på denne enhed."
+          }
         }
       },
       "prompts": {

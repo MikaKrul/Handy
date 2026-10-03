@@ -25,6 +25,7 @@ type BaseProps = {
   onBlur?: () => void;
   className?: string;
   formatCreateLabel?: (input: string) => string;
+  components?: ReactSelectProps<SelectOption, false>["components"];
 };
 
 type CreatableProps = {
@@ -76,6 +77,10 @@ const selectStyles: StylesConfig<SelectOption, false> = {
   singleValue: (base) => ({
     ...base,
     color: "var(--color-text)",
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   }),
   dropdownIndicator: (base, state) => ({
     ...base,
@@ -133,6 +138,7 @@ export const Select: React.FC<SelectProps> = React.memo(
     isCreatable,
     formatCreateLabel,
     onCreateOption,
+    components,
   }) => {
     const selectValue = React.useMemo(() => {
       if (!value) return null;
@@ -160,6 +166,7 @@ export const Select: React.FC<SelectProps> = React.memo(
       onBlur,
       isClearable,
       styles: selectStyles,
+      components,
     };
 
     if (isCreatable) {

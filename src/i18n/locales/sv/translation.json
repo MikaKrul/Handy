@@ -438,7 +438,26 @@
           "descriptionDefault": "Välj en modell som exponeras av den valda leverantören.",
           "placeholderWithOptions": "Sök eller välj en modell",
           "placeholderNoOptions": "Ange ett modellnamn",
-          "refreshModels": "Uppdatera modeller"
+          "refreshModels": "Uppdatera modeller",
+          "test": "testa",
+          "testing": "testar...",
+          "testSuccess": "Modellen fungerar",
+          "retry": "Försök igen",
+          "dismiss": "Stäng",
+          "useCustomModel": "Använd \"{{model}}\"",
+          "errors": {
+            "authentication": "Leverantören avvisade API-nyckeln.",
+            "modelNotFound": "Leverantören känner inte till den här modellen.",
+            "rateLimited": "Hastighetsbegränsning eller kvot har överskridits.",
+            "provider": "Leverantören returnerade ett fel.",
+            "timeout": "Leverantören svarade inte i tid.",
+            "unexpectedResponse": "Modellen svarade oväntat.",
+            "emptyResponse": "Leverantören returnerade ett tomt svar.",
+            "noProvider": "Ingen leverantör för efterbehandling har valts.",
+            "noModel": "Ingen modell för efterbehandling har valts.",
+            "missingApiKey": "Ingen API-nyckel är inställd för den här leverantören.",
+            "unsupportedPlatform": "Den här leverantören är inte tillgänglig på den här enheten."
+          }
         }
       },
       "prompts": {

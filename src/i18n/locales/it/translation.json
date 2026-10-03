@@ -438,7 +438,26 @@
           "descriptionDefault": "Scegli un modello reso disponibile dal provider selezionato.",
           "placeholderWithOptions": "Cerca o scegli un modello",
           "placeholderNoOptions": "Digita il nome di un modello",
-          "refreshModels": "Aggiorna modelli"
+          "refreshModels": "Aggiorna modelli",
+          "test": "prova",
+          "testing": "prova in corso...",
+          "testSuccess": "Il modello funziona",
+          "retry": "Riprova",
+          "dismiss": "Chiudi",
+          "useCustomModel": "Usa \"{{model}}\"",
+          "errors": {
+            "authentication": "Il provider ha rifiutato la chiave API.",
+            "modelNotFound": "Il provider non riconosce questo modello.",
+            "rateLimited": "Limite di frequenza o quota superato.",
+            "provider": "Il provider ha restituito un errore.",
+            "timeout": "Il provider non ha risposto in tempo.",
+            "unexpectedResponse": "Il modello ha risposto in modo inatteso.",
+            "emptyResponse": "Il provider ha restituito una risposta vuota.",
+            "noProvider": "Nessun provider di post-elaborazione selezionato.",
+            "noModel": "Nessun modello di post-elaborazione selezionato.",
+            "missingApiKey": "Nessuna chiave API configurata per questo provider.",
+            "unsupportedPlatform": "Questo provider non è disponibile su questo dispositivo."
+          }
         }
       },
       "prompts": {

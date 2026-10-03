@@ -438,7 +438,26 @@
           "descriptionDefault": "选择所选提供商提供的模型。",
           "placeholderWithOptions": "搜索或选择模型",
           "placeholderNoOptions": "输入模型名称",
-          "refreshModels": "刷新模型"
+          "refreshModels": "刷新模型",
+          "test": "测试",
+          "testing": "测试中...",
+          "testSuccess": "模型工作正常",
+          "retry": "重试",
+          "dismiss": "关闭",
+          "useCustomModel": "使用“{{model}}”",
+          "errors": {
+            "authentication": "提供商拒绝了 API 密钥。",
+            "modelNotFound": "提供商不认识此模型。",
+            "rateLimited": "超出速率限制或配额。",
+            "provider": "提供商返回了错误。",
+            "timeout": "提供商未及时响应。",
+            "unexpectedResponse": "模型返回了意料之外的内容。",
+            "emptyResponse": "提供商返回了空响应。",
+            "noProvider": "未选择后处理提供商。",
+            "noModel": "未选择后处理模型。",
+            "missingApiKey": "此提供商未配置 API 密钥。",
+            "unsupportedPlatform": "此提供商在该设备上不可用。"
+          }
         }
       },
       "prompts": {

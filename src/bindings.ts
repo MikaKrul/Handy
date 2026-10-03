@@ -264,15 +264,23 @@ async setPostProcessProvider(providerId: string) : Promise<Result<null, string>>
     else return { status: "error", error: e  as any };
 }
 },
-async fetchPostProcessModels(providerId: string) : Promise<Result<string[], string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("fetch_post_process_models", { providerId }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async addPostProcessPrompt(name: string, prompt: string) : Promise<Result<LLMPrompt, string>> {
+  async fetchPostProcessModels(providerId: string) : Promise<Result<string[], string>> {
+      try {
+      return { status: "ok", data: await TAURI_INVOKE("fetch_post_process_models", { providerId }) };
+  } catch (e) {
+      if(e instanceof Error) throw e;
+      else return { status: "error", error: e  as any };
+  }
+  },
+  async testPostProcessModel(model?: string | null) : Promise<Result<null, PostProcessTestFailure>> {
+      try {
+      return { status: "ok", data: await TAURI_INVOKE("test_post_process_model", { model }) };
+  } catch (e) {
+      if(e instanceof Error) throw e;
+      else return { status: "error", error: e  as any };
+  }
+  },
+  async addPostProcessPrompt(name: string, prompt: string) : Promise<Result<LLMPrompt, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("add_post_process_prompt", { name, prompt }) };
 } catch (e) {
@@ -1061,6 +1069,11 @@ export type LLMPrompt = { id: string; name: string; prompt: string }
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error"
 export type ModelInfo = { id: string; name: string; description: string; filename: string; source: ModelSource; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; is_directory: boolean; engine_type: EngineType; accuracy_score: number; speed_score: number; supports_translation: boolean; is_recommended: boolean; supported_languages: string[]; supports_language_selection: boolean; is_custom: boolean; supports_streaming: boolean; supports_language_detection: boolean }
 export type ModelLoadStatus = { is_loaded: boolean; current_model: string | null }
+/**
+ * A failed post-processing model test: a translatable `kind` plus the raw
+ * provider text in `detail`.
+ */
+export type PostProcessTestFailure = { kind: string; detail: string }
 /**
  * Where a model comes from and how Handy obtains it — the routing discriminant
  * for downloading and on-disk resolution.
