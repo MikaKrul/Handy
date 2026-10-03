@@ -227,6 +227,10 @@
           "push_to_talk": "Graba mientras mantienes pulsado el atajo",
           "toggle": "Toca el atajo para empezar a grabar, tócalo de nuevo para detener"
         }
+      },
+      "stopWithEnter": {
+        "label": "Detener con Enter",
+        "description": "Pulsar Enter durante la grabación la detiene, igual que pulsar el atajo de transcripción otra vez. La transcripción se pega después, o se posprocesa primero si la grabación empezó con posprocesamiento."
       }
     },
     "sound": {

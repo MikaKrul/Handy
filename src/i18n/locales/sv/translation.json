@@ -207,6 +207,10 @@
           "push_to_talk": "Spelar in så länge du håller genvägen nedtryckt",
           "toggle": "Tryck på genvägen för att starta inspelningen, tryck igen för att stoppa"
         }
+      },
+      "stopWithEnter": {
+        "label": "Stoppa med Enter",
+        "description": "Att trycka på Enter under inspelningen stoppar den, precis som att trycka på transkriberingsgenvägen igen. Transkriberingen klistras sedan in, eller efterbehandlas först om inspelningen startade med efterbehandling."
       }
     },
     "models": {
