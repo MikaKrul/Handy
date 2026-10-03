@@ -359,13 +359,11 @@ const RecordingOverlay: React.FC = () => {
           postProcessNotice !== null ? "spp-flash" : ""
         }`}
       >
-        {working ? (
-          workingRow(workLabel, true)
-        ) : postProcessNotice !== null ? (
-          switchNoticeRow(postProcessNotice)
-        ) : (
-          listeningRow(false, true)
-        )}
+        {working
+          ? workingRow(workLabel, true)
+          : postProcessNotice !== null
+            ? switchNoticeRow(postProcessNotice)
+            : listeningRow(false, true)}
       </div>
     </div>
   );
