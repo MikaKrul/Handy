@@ -227,6 +227,10 @@
           "push_to_talk": "Registra finché tieni premuta la scorciatoia",
           "toggle": "Tocca la scorciatoia per avviare la registrazione, tocca di nuovo per fermarla"
         }
+      },
+      "stopWithEnter": {
+        "label": "Interrompi con Invio",
+        "description": "Premere Invio durante la registrazione la interrompe, proprio come premere di nuovo la scorciatoia di trascrizione. La trascrizione viene poi incollata, o prima post-elaborata se la registrazione è iniziata con la post-elaborazione."
       }
     },
     "sound": {

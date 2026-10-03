@@ -207,6 +207,10 @@
           "push_to_talk": "Merekam selama Anda menahan pintasan",
           "toggle": "Ketuk pintasan untuk mulai merekam, lalu ketuk lagi untuk berhenti"
         }
+      },
+      "stopWithEnter": {
+        "label": "Berhenti dengan Enter",
+        "description": "Menekan Enter saat merekam akan menghentikannya, sama seperti menekan pintasan transkripsi untuk kedua kalinya. Transkripsi kemudian ditempel, atau diproses pasca terlebih dahulu jika rekaman dimulai dengan pasca-pemrosesan."
       }
     },
     "models": {

@@ -227,6 +227,10 @@
           "push_to_talk": "Kısayolu basılı tuttuğunuz sürece kaydeder",
           "toggle": "Kaydı başlatmak için kısayola dokunun, durdurmak için tekrar dokunun"
         }
+      },
+      "stopWithEnter": {
+        "label": "Enter ile Durdur",
+        "description": "Kayıt sırasında Enter'a basmak, transkripsiyon kısayoluna ikinci kez basmakla aynı şekilde kaydı durdurur. Ardından metin yapıştırılır; kayıt son işlemeyle başlatıldıysa önce son işlem uygulanır."
       }
     },
     "sound": {
