@@ -220,6 +220,10 @@
         "average": "متوسط جميع القنوات",
         "channel": "القناة {{n}}"
       },
+      "pauseMediaWhileRecording": {
+        "label": "إيقاف الوسائط مؤقتًا أثناء التسجيل",
+        "description": "إيقاف تشغيل الموسيقى أو الفيديو مؤقتًا أثناء التسجيل واستئنافه بعد ذلك"
+      },
       "audioFeedback": {
         "label": "تنبيهات صوتية",
         "description": "تشغيل صوت عند بدء التسجيل وتوقفه"
@@ -415,7 +419,26 @@
           "descriptionDefault": "اختر نموذجاً يعرضه المزود المختار.",
           "placeholderWithOptions": "ابحث عن نموذج أو اختره",
           "placeholderNoOptions": "اكتب اسم النموذج",
-          "refreshModels": "تحديث النماذج"
+          "refreshModels": "تحديث النماذج",
+          "test": "اختبار",
+          "testing": "جارٍ الاختبار...",
+          "testSuccess": "النموذج يعمل",
+          "retry": "إعادة المحاولة",
+          "dismiss": "إغلاق",
+          "useCustomModel": "استخدام \"{{model}}\"",
+          "errors": {
+            "authentication": "رفض المزود مفتاح API.",
+            "modelNotFound": "المزود لا يعرف هذا النموذج.",
+            "rateLimited": "تم تجاوز حد المعدل أو الحصة.",
+            "provider": "أرجع المزود خطأ.",
+            "timeout": "لم يستجب المزود في الوقت المناسب.",
+            "unexpectedResponse": "أجاب النموذج بشيء غير متوقع.",
+            "emptyResponse": "أرجع المزود ردًا فارغًا.",
+            "noProvider": "لم يتم تحديد مزود المعالجة اللاحقة.",
+            "noModel": "لم يتم تحديد نموذج المعالجة اللاحقة.",
+            "missingApiKey": "لا يوجد مفتاح API مُعدَّم لهذا المزود.",
+            "unsupportedPlatform": "هذا المزود غير متاح على هذا الجهاز."
+          }
         }
       },
       "prompts": {

@@ -3,9 +3,20 @@ use log::{debug, error, info};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, REFERER, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use specta::Type;
 use std::collections::HashSet;
 use std::error::Error as StdError;
 use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
+
+pub const POST_PROCESS_TEST_PROMPT: &str = "Reply with exactly: HANDY_TEST_OK";
+const POST_PROCESS_TEST_RESPONSE: &str = "HANDY_TEST_OK";
+// Generous enough for reasoning models that ignore disable_reasoning, short
+// enough that the "testing..." state never hangs on a dead endpoint.
+const POST_PROCESS_TEST_TIMEOUT_SECS: u64 = 60;
+// Keep echoed model replies readable in the test error card without dumping a
+// reasoning model's whole chain of thought into the UI.
+const POST_PROCESS_TEST_REPLY_SNIPPET_LEN: usize = 200;
 
 #[derive(Debug, Serialize)]
 struct ChatMessage {
@@ -314,6 +325,149 @@ pub async fn send_chat_completion(
         disable_reasoning,
     )
     .await
+}
+
+/// Why a post-processing model test failed.
+///
+/// Serialized as a stable kebab-case string so the frontend can look up a
+/// translated headline and render the untranslated `detail` underneath as the
+/// diagnostic. Kept off the TypeScript type on purpose: a new reason must not
+/// be able to break the frontend build.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PostProcessTestErrorKind {
+    Authentication,
+    ModelNotFound,
+    RateLimited,
+    Provider,
+    Timeout,
+    UnexpectedResponse,
+    EmptyResponse,
+    NoProvider,
+    NoModel,
+    MissingApiKey,
+    UnsupportedPlatform,
+}
+
+impl PostProcessTestErrorKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Authentication => "authentication",
+            Self::ModelNotFound => "model-not-found",
+            Self::RateLimited => "rate-limited",
+            Self::Provider => "provider",
+            Self::Timeout => "timeout",
+            Self::UnexpectedResponse => "unexpected-response",
+            Self::EmptyResponse => "empty-response",
+            Self::NoProvider => "no-provider",
+            Self::NoModel => "no-model",
+            Self::MissingApiKey => "missing-api-key",
+            Self::UnsupportedPlatform => "unsupported-platform",
+        }
+    }
+}
+
+/// A failed post-processing model test: a translatable `kind` plus the raw
+/// provider text in `detail`.
+#[derive(Debug, Clone, Serialize, Type)]
+pub struct PostProcessTestFailure {
+    pub kind: String,
+    pub detail: String,
+}
+
+impl PostProcessTestFailure {
+    pub fn new(kind: PostProcessTestErrorKind, detail: impl Into<String>) -> Self {
+        Self {
+            kind: kind.as_str().to_string(),
+            detail: detail.into(),
+        }
+    }
+}
+
+/// Send a minimal request that verifies a configured post-processing model can
+/// produce the expected response without sending any transcription content.
+pub async fn test_chat_completion(
+    provider: &PostProcessProvider,
+    api_key: String,
+    model: &str,
+    disable_reasoning: bool,
+) -> Result<(), PostProcessTestFailure> {
+    // Only bound the test request; real post-processing must stay unbounded
+    // because long transcriptions with reasoning models can legitimately run
+    // well past a fixed timeout.
+    let request = send_chat_completion(
+        provider,
+        api_key,
+        model,
+        POST_PROCESS_TEST_PROMPT.to_string(),
+        disable_reasoning,
+    );
+
+    let response =
+        tokio::time::timeout(Duration::from_secs(POST_PROCESS_TEST_TIMEOUT_SECS), request)
+            .await
+            .map_err(|_| {
+                PostProcessTestFailure::new(
+                    PostProcessTestErrorKind::Timeout,
+                    format!(
+                        "The provider did not answer within {} seconds.",
+                        POST_PROCESS_TEST_TIMEOUT_SECS
+                    ),
+                )
+            })?
+            .map_err(|error| classify_test_request_error(&error))?;
+
+    validate_test_response(response.as_deref())
+}
+
+fn classify_test_request_error(error: &str) -> PostProcessTestFailure {
+    let kind = if error.contains("status 401") || error.contains("status 403") {
+        PostProcessTestErrorKind::Authentication
+    } else if error.contains("status 404") {
+        PostProcessTestErrorKind::ModelNotFound
+    } else if error.contains("status 429") {
+        PostProcessTestErrorKind::RateLimited
+    } else {
+        PostProcessTestErrorKind::Provider
+    };
+
+    PostProcessTestFailure::new(kind, error)
+}
+
+pub fn validate_test_response(response: Option<&str>) -> Result<(), PostProcessTestFailure> {
+    match response {
+        Some(reply)
+            if reply
+                .trim()
+                .eq_ignore_ascii_case(POST_PROCESS_TEST_RESPONSE) =>
+        {
+            Ok(())
+        }
+        Some(reply) => Err(PostProcessTestFailure::new(
+            PostProcessTestErrorKind::UnexpectedResponse,
+            format!(
+                "Expected {POST_PROCESS_TEST_RESPONSE} but the model replied: {}",
+                snippet(&reply.trim())
+            ),
+        )),
+        None => Err(PostProcessTestFailure::new(
+            PostProcessTestErrorKind::EmptyResponse,
+            "The provider returned no response content.",
+        )),
+    }
+}
+
+fn snippet(text: &str) -> String {
+    if text.is_empty() {
+        return "(empty response)".to_string();
+    }
+    if text.chars().count() <= POST_PROCESS_TEST_REPLY_SNIPPET_LEN {
+        return format!("\"{text}\"");
+    }
+    let truncated: String = text
+        .chars()
+        .take(POST_PROCESS_TEST_REPLY_SNIPPET_LEN)
+        .collect();
+    format!("\"{truncated}…\"")
 }
 
 /// Send a chat completion request with structured output support.
@@ -730,5 +884,87 @@ mod tests {
         assert!(is_known_rejected(&key));
         // A different model on the same endpoint is tracked separately
         assert!(!is_known_rejected(&endpoint_key(&deepseek, "other-model")));
+    }
+
+    #[test]
+    fn test_response_accepts_the_expected_value() {
+        assert!(validate_test_response(Some("HANDY_TEST_OK")).is_ok());
+    }
+
+    #[test]
+    fn test_response_tolerates_whitespace_and_case() {
+        assert!(validate_test_response(Some("  HANDY_TEST_OK  ")).is_ok());
+        assert!(validate_test_response(Some("handy_test_ok")).is_ok());
+    }
+
+    #[test]
+    fn test_response_rejects_unexpected_value() {
+        let failure = validate_test_response(Some("42")).unwrap_err();
+        assert_eq!(failure.kind, "unexpected-response");
+        assert_eq!(
+            failure.detail,
+            "Expected HANDY_TEST_OK but the model replied: \"42\""
+        );
+    }
+
+    #[test]
+    fn test_response_rejects_empty_value() {
+        let failure = validate_test_response(Some("   ")).unwrap_err();
+        assert_eq!(failure.kind, "unexpected-response");
+        assert_eq!(
+            failure.detail,
+            "Expected HANDY_TEST_OK but the model replied: (empty response)"
+        );
+    }
+
+    #[test]
+    fn test_response_reports_a_missing_body_separately() {
+        let failure = validate_test_response(None).unwrap_err();
+        assert_eq!(failure.kind, "empty-response");
+    }
+
+    #[test]
+    fn test_response_truncates_long_replies() {
+        let long_reply = "x".repeat(500);
+        let failure = validate_test_response(Some(&long_reply)).unwrap_err();
+        assert_eq!(failure.kind, "unexpected-response");
+        assert!(failure
+            .detail
+            .starts_with("Expected HANDY_TEST_OK but the model replied:"));
+        assert!(failure.detail.matches('"').count() == 2);
+        assert!(failure.detail.len() < 300);
+    }
+
+    #[tokio::test]
+    async fn test_request_preserves_provider_api_failures() {
+        let base_url = serve_one_response("401 Unauthorized", "invalid API key").await;
+        let failure = test_chat_completion(
+            &provider("openai", &base_url),
+            "bad-key".to_string(),
+            "test-model",
+            false,
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(failure.kind, "authentication");
+        assert!(failure.detail.contains("status 401"));
+        assert!(failure.detail.contains("invalid API key"));
+    }
+
+    #[test]
+    fn test_request_error_classifies_model_and_rate_limit_failures() {
+        assert_eq!(
+            classify_test_request_error("API request failed with status 404").kind,
+            "model-not-found"
+        );
+        assert_eq!(
+            classify_test_request_error("API request failed with status 429").kind,
+            "rate-limited"
+        );
+        assert_eq!(
+            classify_test_request_error("API request failed with status 500").kind,
+            "provider"
+        );
     }
 }

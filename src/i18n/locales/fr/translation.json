@@ -243,6 +243,10 @@
         "average": "Moyenne de tous les canaux",
         "channel": "Canal {{n}}"
       },
+      "pauseMediaWhileRecording": {
+        "label": "Pause du média pendant l'enregistrement",
+        "description": "Mettre la musique ou la vidéo en pause pendant l'enregistrement et la reprendre ensuite"
+      },
       "audioFeedback": {
         "label": "Signal sonore",
         "description": "Jouer un son au début et à la fin de l'enregistrement"
@@ -438,7 +442,26 @@
           "descriptionDefault": "Choisissez un modèle exposé par le fournisseur sélectionné.",
           "placeholderWithOptions": "Rechercher ou sélectionner un modèle",
           "placeholderNoOptions": "Tapez un nom de modèle",
-          "refreshModels": "Actualiser les modèles"
+          "refreshModels": "Actualiser les modèles",
+          "test": "tester",
+          "testing": "test en cours...",
+          "testSuccess": "Le modèle fonctionne",
+          "retry": "Réessayer",
+          "dismiss": "Fermer",
+          "useCustomModel": "Utiliser « {{model}} »",
+          "errors": {
+            "authentication": "Le fournisseur a refusé la clé API.",
+            "modelNotFound": "Le fournisseur ne connaît pas ce modèle.",
+            "rateLimited": "Limite de débit ou quota dépassé.",
+            "provider": "Le fournisseur a renvoyé une erreur.",
+            "timeout": "Le fournisseur n'a pas répondu à temps.",
+            "unexpectedResponse": "Le modèle a répondu de façon inattendue.",
+            "emptyResponse": "Le fournisseur a renvoyé une réponse vide.",
+            "noProvider": "Aucun fournisseur de post-traitement n'est sélectionné.",
+            "noModel": "Aucun modèle de post-traitement n'est sélectionné.",
+            "missingApiKey": "Aucune clé API n'est configurée pour ce fournisseur.",
+            "unsupportedPlatform": "Ce fournisseur n'est pas disponible sur cet appareil."
+          }
         }
       },
       "prompts": {

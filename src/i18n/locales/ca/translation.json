@@ -438,7 +438,26 @@
           "descriptionDefault": "Trieu un model ofert pel proveïdor seleccionat.",
           "placeholderWithOptions": "Cerqueu o seleccioneu un model",
           "placeholderNoOptions": "Escriviu el nom d'un model",
-          "refreshModels": "Actualitzeu els models"
+          "refreshModels": "Actualitzeu els models",
+          "test": "prova",
+          "testing": "s'està provant...",
+          "testSuccess": "El model funciona",
+          "retry": "Torna-ho a provar",
+          "dismiss": "Tanca",
+          "useCustomModel": "Fes servir «{{model}}»",
+          "errors": {
+            "authentication": "El proveïdor ha rebutjat la clau de l'API.",
+            "modelNotFound": "El proveïdor no coneix aquest model.",
+            "rateLimited": "S'ha superat el límit de peticions o la quota.",
+            "provider": "El proveïdor ha retornat un error.",
+            "timeout": "El proveïdor no ha respost a temps.",
+            "unexpectedResponse": "El model ha respost de manera inesperada.",
+            "emptyResponse": "El proveïdor ha retornat una resposta buida.",
+            "noProvider": "No has seleccionat cap proveïdor de postprocessament.",
+            "noModel": "No has seleccionat cap model de postprocessament.",
+            "missingApiKey": "No hi ha cap clau de l'API configurada per a aquest proveïdor.",
+            "unsupportedPlatform": "Aquest proveïdor no està disponible en aquest dispositiu."
+          }
         }
       },
       "prompts": {
