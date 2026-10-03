@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { RefreshCcw } from "lucide-react";
-import { commands } from "@/bindings";
+import {
+  CheckCircle2,
+  RefreshCcw,
+  RotateCcw,
+  TriangleAlert,
+  X,
+} from "lucide-react";
+import { commands, type PostProcessTestFailure } from "@/bindings";
 
 import { Alert } from "../../ui/Alert";
 import {
@@ -22,9 +28,67 @@ import { usePostProcessProviderState } from "../PostProcessingSettingsApi/usePos
 import { ShortcutInput } from "../ShortcutInput";
 import { useSettings } from "../../../hooks/useSettings";
 
+type TestResultState =
+  | { kind: "success"; model: string }
+  | { kind: "error"; model: string; failure: PostProcessTestFailure };
+
+// Maps the wire value from PostProcessTestErrorKind to its translation key.
+// Unknown kinds fall back to the generic provider error, so a newer backend
+// still renders something readable instead of a raw key.
+const TEST_ERROR_KEYS: Record<string, string> = {
+  authentication: "authentication",
+  "model-not-found": "modelNotFound",
+  "rate-limited": "rateLimited",
+  provider: "provider",
+  timeout: "timeout",
+  "unexpected-response": "unexpectedResponse",
+  "empty-response": "emptyResponse",
+  "no-provider": "noProvider",
+  "no-model": "noModel",
+  "missing-api-key": "missingApiKey",
+  "unsupported-platform": "unsupportedPlatform",
+};
+
 const PostProcessingSettingsApiComponent: React.FC = () => {
   const { t } = useTranslation();
   const state = usePostProcessProviderState();
+  const [testingModel, setTestingModel] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<TestResultState | null>(null);
+
+  useEffect(() => {
+    setTestingModel(null);
+    setTestResult(null);
+  }, [state.selectedProviderId]);
+
+  const handleTestModel = async (model?: string) => {
+    const targetModel = model || state.model;
+    if (testingModel || !targetModel) return;
+
+    setTestingModel(targetModel);
+    setTestResult(null);
+    try {
+      const result = await commands.testPostProcessModel(targetModel);
+      if (result.status === "ok") {
+        setTestResult({ kind: "success", model: targetModel });
+      } else {
+        setTestResult({
+          kind: "error",
+          model: targetModel,
+          failure: result.error,
+        });
+      }
+    } catch (error) {
+      // A thrown error means the command never produced a classified failure,
+      // so surface it verbatim rather than pretending it is a provider problem.
+      setTestResult({
+        kind: "error",
+        model: targetModel,
+        failure: { kind: "provider", detail: String(error) },
+      });
+    } finally {
+      setTestingModel(null);
+    }
+  };
 
   return (
     <>
@@ -108,34 +172,112 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
           layout="stacked"
           grouped={true}
         >
-          <div className="flex items-center gap-2">
-            <ModelSelect
-              value={state.model}
-              options={state.modelOptions}
-              disabled={state.isModelUpdating}
-              isLoading={state.isFetchingModels}
-              placeholder={
-                state.modelOptions.length > 0
-                  ? t(
-                      "settings.postProcessing.api.model.placeholderWithOptions",
-                    )
-                  : t("settings.postProcessing.api.model.placeholderNoOptions")
-              }
-              onSelect={state.handleModelSelect}
-              onCreate={state.handleModelCreate}
-              onBlur={() => {}}
-              className="flex-1 min-w-[380px]"
-            />
-            <ResetButton
-              onClick={state.handleRefreshModels}
-              disabled={state.isFetchingModels}
-              ariaLabel={t("settings.postProcessing.api.model.refreshModels")}
-              className="flex h-10 w-10 items-center justify-center"
-            >
-              <RefreshCcw
-                className={`h-4 w-4 ${state.isFetchingModels ? "animate-spin" : ""}`}
+          <div className="space-y-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <ModelSelect
+                value={state.model}
+                options={state.modelOptions}
+                disabled={state.isModelUpdating}
+                isLoading={state.isFetchingModels}
+                placeholder={
+                  state.modelOptions.length > 0
+                    ? t(
+                        "settings.postProcessing.api.model.placeholderWithOptions",
+                      )
+                    : t(
+                        "settings.postProcessing.api.model.placeholderNoOptions",
+                      )
+                }
+                onSelect={state.handleModelSelect}
+                onCreate={state.handleModelCreate}
+                onBlur={() => {}}
+                onTest={handleTestModel}
+                testingModel={testingModel}
+                testLabel={t("settings.postProcessing.api.model.test")}
+                testingLabel={t("settings.postProcessing.api.model.testing")}
+                className="min-w-0 flex-1"
               />
-            </ResetButton>
+              <ResetButton
+                onClick={state.handleRefreshModels}
+                disabled={state.isFetchingModels}
+                ariaLabel={t("settings.postProcessing.api.model.refreshModels")}
+                className="flex h-10 w-10 shrink-0 items-center justify-center"
+              >
+                <RefreshCcw
+                  className={`h-4 w-4 ${state.isFetchingModels ? "animate-spin" : ""}`}
+                />
+              </ResetButton>
+            </div>
+
+            {testResult && (
+              <div
+                className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 ${
+                  testResult.kind === "error"
+                    ? "border-error/40 bg-error/10"
+                    : "border-success/40 bg-success/10"
+                }`}
+              >
+                {testResult.kind === "error" ? (
+                  <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-error" />
+                ) : (
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+                )}
+                <div className="min-w-0 flex-1 space-y-1">
+                  {testResult.kind === "error" ? (
+                    <>
+                      <p className="text-sm font-medium leading-5 text-error">
+                        {t(
+                          `settings.postProcessing.api.model.errors.${
+                            TEST_ERROR_KEYS[testResult.failure.kind] ??
+                            "provider"
+                          }`,
+                        )}
+                      </p>
+                      <p className="break-words text-xs leading-4 text-error/80">
+                        {testResult.failure.detail}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm leading-5 text-success">
+                      {t("settings.postProcessing.api.model.testSuccess")}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-1 pt-1">
+                    {testResult.kind === "error" && (
+                      <button
+                        type="button"
+                        onClick={() => handleTestModel(testResult.model)}
+                        disabled={Boolean(testingModel)}
+                        className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded px-2 py-1 text-xs font-medium text-error transition-colors hover:bg-error/15 focus:outline-none focus:ring-1 focus:ring-error disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <RotateCcw
+                          className={`h-3.5 w-3.5 ${
+                            testingModel === testResult.model
+                              ? "animate-spin"
+                              : ""
+                          }`}
+                        />
+                        {t("settings.postProcessing.api.model.retry")}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setTestResult(null)}
+                      aria-label={t(
+                        "settings.postProcessing.api.model.dismiss",
+                      )}
+                      className={`cursor-pointer rounded p-1 transition-colors focus:outline-none focus:ring-1 ${
+                        testResult.kind === "error"
+                          ? "text-error hover:bg-error/15 focus:ring-error"
+                          : "text-success hover:bg-success/15 focus:ring-success"
+                      }`}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </SettingContainer>
       )}

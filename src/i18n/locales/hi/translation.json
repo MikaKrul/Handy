@@ -442,7 +442,26 @@
           "descriptionDefault": "चुने गए प्रोवाइडर का कोई मॉडल चुनें.",
           "placeholderWithOptions": "मॉडल खोजें या चुनें",
           "placeholderNoOptions": "मॉडल का नाम लिखें",
-          "refreshModels": "मॉडल रीफ़्रेश करें"
+          "refreshModels": "मॉडल रीफ़्रेश करें",
+          "test": "टेस्ट",
+          "testing": "टेस्ट हो रहा है...",
+          "testSuccess": "मॉडल काम कर रहा है",
+          "retry": "फिर कोशिश करें",
+          "dismiss": "बंद करें",
+          "useCustomModel": "\"{{model}}\" का उपयोग करें",
+          "errors": {
+            "authentication": "प्रोवाइडर ने API कुंजी अस्वीकार कर दी.",
+            "modelNotFound": "प्रोवाइडर को यह मॉडल नहीं पता.",
+            "rateLimited": "रट लिमिट या कोटा पार कर गया.",
+            "provider": "प्रोवाइडर ने त्रुटि लौटाई.",
+            "timeout": "प्रोवाइडर ने समय पर जवाब नहीं दिया.",
+            "unexpectedResponse": "मॉडल ने अप्रत्याशित जवाब दिया.",
+            "emptyResponse": "प्रोवाइडर ने खाली जवाब लौटाया.",
+            "noProvider": "कोई पोस्ट-प्रोसेसिंग प्रोवाइडर चुना नहीं गया है.",
+            "noModel": "कोई पोस्ट-प्रोसेसिंग मॉडल चुना नहीं गया है.",
+            "missingApiKey": "इस प्रोवाइडर के लिए कोई API कुंजी सेट नहीं है.",
+            "unsupportedPlatform": "यह प्रोवाइडर इस डिवाइस पर उपलब्ध नहीं है."
+          }
         }
       },
       "prompts": {

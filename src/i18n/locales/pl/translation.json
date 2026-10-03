@@ -442,7 +442,26 @@
           "descriptionDefault": "Wybierz model udostępniony przez wybranego dostawcę.",
           "placeholderWithOptions": "Wyszukaj lub wybierz model",
           "placeholderNoOptions": "Wpisz nazwę modelu",
-          "refreshModels": "Odśwież modele"
+          "refreshModels": "Odśwież modele",
+          "test": "testuj",
+          "testing": "testowanie...",
+          "testSuccess": "Model działa",
+          "retry": "Spróbuj ponownie",
+          "dismiss": "Zamknij",
+          "useCustomModel": "Użyj „{{model}}”",
+          "errors": {
+            "authentication": "Dostawca odrzucił klucz API.",
+            "modelNotFound": "Dostawca nie zna tego modelu.",
+            "rateLimited": "Przekroczono limit żądań lub limit przydziału.",
+            "provider": "Dostawca zwrócił błąd.",
+            "timeout": "Dostawca nie odpowiedział na czas.",
+            "unexpectedResponse": "Model odpowiedział w nieoczekiwany sposób.",
+            "emptyResponse": "Dostawca zwrócił pustą odpowiedź.",
+            "noProvider": "Nie wybrano dostawcy przetwarzania końcowego.",
+            "noModel": "Nie wybrano modelu przetwarzania końcowego.",
+            "missingApiKey": "Dla tego dostawcy nie skonfigurowano klucza API.",
+            "unsupportedPlatform": "Ten dostawca nie jest dostępny na tym urządzeniu."
+          }
         }
       },
       "prompts": {

@@ -442,7 +442,26 @@
           "descriptionDefault": "Wähle ein Modell des ausgewählten Anbieters.",
           "placeholderWithOptions": "Modell suchen oder auswählen",
           "placeholderNoOptions": "Modellnamen eingeben",
-          "refreshModels": "Modelle aktualisieren"
+          "refreshModels": "Modelle aktualisieren",
+          "test": "testen",
+          "testing": "wird getestet...",
+          "testSuccess": "Modell funktioniert",
+          "retry": "Erneut versuchen",
+          "dismiss": "Schließen",
+          "useCustomModel": "„{{model}}“ verwenden",
+          "errors": {
+            "authentication": "Der Anbieter hat den API-Schlüssel abgelehnt.",
+            "modelNotFound": "Der Anbieter kennt dieses Modell nicht.",
+            "rateLimited": "Ratenbegrenzung oder Kontingent überschritten.",
+            "provider": "Der Anbieter hat einen Fehler zurückgegeben.",
+            "timeout": "Der Anbieter hat nicht rechtzeitig geantwortet.",
+            "unexpectedResponse": "Das Modell hat unerwartet geantwortet.",
+            "emptyResponse": "Der Anbieter hat eine leere Antwort zurückgegeben.",
+            "noProvider": "Es ist kein Anbieter für die Nachbearbeitung ausgewählt.",
+            "noModel": "Es ist kein Modell für die Nachbearbeitung ausgewählt.",
+            "missingApiKey": "Für diesen Anbieter ist kein API-Schlüssel hinterlegt.",
+            "unsupportedPlatform": "Dieser Anbieter ist auf diesem Gerät nicht verfügbar."
+          }
         }
       },
       "prompts": {
