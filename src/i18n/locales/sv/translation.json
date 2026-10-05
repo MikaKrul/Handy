@@ -735,7 +735,9 @@
   },
   "overlay": {
     "transcribing": "Transkriberar...",
-    "processing": "Bearbetar..."
+    "processing": "Bearbetar...",
+    "switchToPostProcessing": "Efterbehandling på",
+    "switchToRawTranscript": "Efterbehandling av"
   },
   "whatsNew": {
     "title": "Nytt i Handy v{{version}}"
