@@ -735,9 +735,7 @@
   },
   "overlay": {
     "transcribing": "Đang chuyển đổi...",
-    "processing": "Đang xử lý...",
-    "switchToPostProcessing": "Hậu xử lý bật",
-    "switchToRawTranscript": "Hậu xử lý tắt"
+    "processing": "Đang xử lý..."
   },
   "whatsNew": {
     "title": "Điểm mới trong Handy v{{version}}"

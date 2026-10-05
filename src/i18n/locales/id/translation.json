@@ -734,9 +734,7 @@
   },
   "overlay": {
     "transcribing": "Mentranskripsikan...",
-    "processing": "Memproses...",
-    "switchToPostProcessing": "Pasca-pemrosesan aktif",
-    "switchToRawTranscript": "Pasca-pemrosesan nonaktif"
+    "processing": "Memproses..."
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} mungkin memblokir 1 pintasan",

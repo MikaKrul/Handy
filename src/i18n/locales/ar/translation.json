@@ -735,9 +735,7 @@
   },
   "overlay": {
     "transcribing": "...جاري التفريغ",
-    "processing": "...جاري المعالجة",
-    "switchToPostProcessing": "المعالجة اللاحقة مفعّلة",
-    "switchToRawTranscript": "المعالجة اللاحقة معطّلة"
+    "processing": "...جاري المعالجة"
   },
   "whatsNew": {
     "title": "الجديد في Handy v{{version}}"

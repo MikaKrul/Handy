@@ -738,9 +738,7 @@
   },
   "overlay": {
     "transcribing": "Transcriberen...",
-    "processing": "Verwerken...",
-    "switchToPostProcessing": "Post-processing aan",
-    "switchToRawTranscript": "Post-processing uit"
+    "processing": "Verwerken..."
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} blokkeert mogelijk 1 sneltoets",
