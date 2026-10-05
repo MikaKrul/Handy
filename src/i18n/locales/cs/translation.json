@@ -735,9 +735,7 @@
   },
   "overlay": {
     "transcribing": "Přepisuji...",
-    "processing": "Zpracovávám...",
-    "switchToPostProcessing": "Postprocessing zapnut",
-    "switchToRawTranscript": "Postprocessing vypnut"
+    "processing": "Zpracovávám..."
   },
   "whatsNew": {
     "title": "Novinky v Handy v{{version}}"

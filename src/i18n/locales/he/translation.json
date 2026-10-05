@@ -735,9 +735,7 @@
   },
   "overlay": {
     "transcribing": "מתמלל...",
-    "processing": "מעבד...",
-    "switchToPostProcessing": "עיבוד נוסף מופעל",
-    "switchToRawTranscript": "עיבוד נוסף כבוי"
+    "processing": "מעבד..."
   },
   "whatsNew": {
     "title": "חדש ב-Handy v{{version}}"
