@@ -207,6 +207,10 @@
           "push_to_talk": "Spelar in så länge du håller genvägen nedtryckt",
           "toggle": "Tryck på genvägen för att starta inspelningen, tryck igen för att stoppa"
         }
+      },
+      "stopWithEnter": {
+        "label": "Stoppa med Enter",
+        "description": "Att trycka på Enter under inspelningen stoppar den, precis som att trycka på transkriberingsgenvägen igen. Transkriberingen klistras sedan in, eller efterbehandlas först om inspelningen startade med efterbehandling."
       }
     },
     "models": {
@@ -242,6 +246,10 @@
         "description": "Välj vilken ingångskanal du vill spela in från. Använd detta om ditt ljudgränssnitt har flera ingångar.",
         "average": "Medelvärde av alla kanaler",
         "channel": "Kanal {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "Pausa media under inspelning",
+        "description": "Pausa musik- eller videouppspelning under inspelningen och återuppta den efteråt"
       },
       "audioFeedback": {
         "label": "Ljudåterkoppling",
@@ -438,7 +446,26 @@
           "descriptionDefault": "Välj en modell som exponeras av den valda leverantören.",
           "placeholderWithOptions": "Sök eller välj en modell",
           "placeholderNoOptions": "Ange ett modellnamn",
-          "refreshModels": "Uppdatera modeller"
+          "refreshModels": "Uppdatera modeller",
+          "test": "testa",
+          "testing": "testar...",
+          "testSuccess": "Modellen fungerar",
+          "retry": "Försök igen",
+          "dismiss": "Stäng",
+          "useCustomModel": "Använd \"{{model}}\"",
+          "errors": {
+            "authentication": "Leverantören avvisade API-nyckeln.",
+            "modelNotFound": "Leverantören känner inte till den här modellen.",
+            "rateLimited": "Hastighetsbegränsning eller kvot har överskridits.",
+            "provider": "Leverantören returnerade ett fel.",
+            "timeout": "Leverantören svarade inte i tid.",
+            "unexpectedResponse": "Modellen svarade oväntat.",
+            "emptyResponse": "Leverantören returnerade ett tomt svar.",
+            "noProvider": "Ingen leverantör för efterbehandling har valts.",
+            "noModel": "Ingen modell för efterbehandling har valts.",
+            "missingApiKey": "Ingen API-nyckel är inställd för den här leverantören.",
+            "unsupportedPlatform": "Den här leverantören är inte tillgänglig på den här enheten."
+          }
         }
       },
       "prompts": {

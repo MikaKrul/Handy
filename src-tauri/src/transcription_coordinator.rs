@@ -142,6 +142,14 @@ struct InputEvent {
     /// They fire on every edge by design and must never be debounced —
     /// dropping one desyncs toggle parity and wedges recording on.
     external: bool,
+    /// When the sender observed the edge, not when the coordinator thread
+    /// dequeues it. The coordinator executes `Effect::Start` inline, and the
+    /// first activation after startup spends hundreds of milliseconds
+    /// initializing the microphone; a release queued behind that block must
+    /// still be measured from the real key-up, or a short tap classifies as
+    /// a hold and the just-started recording stops with zero samples
+    /// (#2089). The loop passes this as the `now` of `on_input`.
+    received_at: Instant,
 }
 
 impl InputEvent {
@@ -181,8 +189,17 @@ enum Effect {
 /// Commands processed sequentially by the coordinator thread.
 enum Command {
     Input(InputEvent),
-    Cancel { recording_was_active: bool },
+    Cancel {
+        recording_was_active: bool,
+    },
     ProcessingFinished,
+    /// Stop the active recording, if any — behaves exactly like pressing the
+    /// transcribe shortcut a second time. Unlike `Input`, the caller does not
+    /// need to know which binding started the session: the stored recording
+    /// binding is used, so post-processing follows the original session.
+    StopRequest {
+        source: String,
+    },
 }
 
 /// Decide whether a key-up should be deferred (so auto-repeat can cancel it)
@@ -554,6 +571,22 @@ impl CoordinatorState {
         }
     }
 
+    /// An explicit stop request (e.g. the Enter key): ends the active
+    /// recording exactly like pressing the transcribe shortcut a second time.
+    /// The stored recording binding is reused, so a session that started with
+    /// post-processing still post-processes. Deferred releases and remembered
+    /// presses are left untouched — the release grace still resolves the
+    /// original key normally. No-op unless currently recording.
+    fn on_stop_request(&mut self, source: String) -> Option<Effect> {
+        match &self.stage {
+            Stage::Recording(id) => {
+                let binding_id = id.clone();
+                Some(self.begin_processing(binding_id, source))
+            }
+            Stage::Idle | Stage::Processing => None,
+        }
+    }
+
     fn on_processing_finished(&mut self) -> Option<Effect> {
         self.stage = Stage::Idle;
         self.hold = None;
@@ -690,13 +723,23 @@ impl TranscriptionCoordinator {
 
                     match cmd {
                         Command::Input(input) => {
-                            if let Some(effect) = state.on_input(input, Instant::now()) {
+                            // Hold durations are measured edge-to-edge via the
+                            // sender's stamp, so time spent blocked in a prior
+                            // effect (first-activation mic init) cannot turn a
+                            // tap into a hold (#2089).
+                            let now = input.received_at;
+                            if let Some(effect) = state.on_input(input, now) {
                                 run_effect(&app, &mut state, effect);
                             }
                         }
                         Command::Cancel {
                             recording_was_active,
                         } => state.on_cancel(recording_was_active),
+                        Command::StopRequest { source } => {
+                            if let Some(effect) = state.on_stop_request(source) {
+                                run_effect(&app, &mut state, effect);
+                            }
+                        }
                         Command::ProcessingFinished => {
                             if let Some(effect) = state.on_processing_finished() {
                                 run_effect(&app, &mut state, effect);
@@ -765,6 +808,7 @@ impl TranscriptionCoordinator {
                 mode,
                 hold_threshold,
                 external,
+                received_at: Instant::now(),
             }))
             .is_err()
         {
@@ -777,6 +821,23 @@ impl TranscriptionCoordinator {
             .tx
             .send(Command::Cancel {
                 recording_was_active,
+            })
+            .is_err()
+        {
+            warn!("Transcription coordinator channel closed");
+        }
+    }
+
+    /// Request a stop of the active recording, if any — behaves exactly like
+    /// pressing the transcribe shortcut a second time. Used by the Enter key.
+    /// Unlike `send_input`, the caller does not name a binding: the stored
+    /// recording binding is reused, preserving post-processing. No-op unless
+    /// currently recording.
+    pub fn request_stop(&self, source: &str) {
+        if self
+            .tx
+            .send(Command::StopRequest {
+                source: source.to_string(),
             })
             .is_err()
         {
@@ -1023,6 +1084,7 @@ mod tests {
             mode: ShortcutActivation::PushToTalk,
             hold_threshold: Duration::ZERO,
             external: false,
+            received_at: Instant::now(),
         }
     }
 
@@ -1162,6 +1224,7 @@ mod tests {
                     mode: ShortcutActivation::Toggle,
                     hold_threshold: Duration::ZERO,
                     external: true,
+                    received_at: at,
                 },
                 at,
             )
@@ -1224,6 +1287,7 @@ mod tests {
             mode: ShortcutActivation::Toggle,
             hold_threshold: Duration::ZERO,
             external,
+            received_at: Instant::now(),
         }
     }
 
@@ -1349,6 +1413,7 @@ mod tests {
             mode,
             hold_threshold: HOLD_THRESHOLD,
             external: false,
+            received_at: Instant::now(),
         }
     }
 
@@ -1406,6 +1471,52 @@ mod tests {
         assert!(state.on_input(input(mode, false), t0 + ms(5080)).is_none());
         assert!(state.on_processing_finished().is_none());
         assert_eq!(state.stage, Stage::Idle);
+    }
+
+    /// Regression for #2089: the first activation after startup blocks the
+    /// coordinator thread in `Effect::Start` while the microphone initializes
+    /// (~400ms in the report). A short tap whose release is queued behind
+    /// that block must still classify as a tap. The loop therefore measures
+    /// the hold from the sender's `received_at` stamps (edge-to-edge), never
+    /// from its own dequeue time; this drives the machine with exactly those
+    /// stamps. Before the fix the release was stamped at dequeue — after the
+    /// init — so a 150ms tap measured past the 300ms threshold, the
+    /// just-started recording stopped on the spot, and the transcription
+    /// came back empty.
+    #[test]
+    fn auto_mode_tap_survives_first_activation_start_latency() {
+        let mode = ShortcutActivation::HoldOrToggle;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+
+        let mut press = input(mode, true);
+        press.received_at = t0;
+        assert!(matches!(
+            state.on_input(press, t0),
+            Some(Effect::Start { .. })
+        ));
+
+        // The user taps: the key really goes up 150ms in, while the
+        // coordinator is still blocked initializing the microphone. The
+        // release carries the edge time, not the much later dequeue time.
+        let mut release = input(mode, false);
+        release.received_at = t0 + ms(150);
+        assert!(state.on_input(release, t0 + ms(150)).is_none());
+        assert!(
+            state.on_grace_expired().is_none(),
+            "a 150ms tap measured edge-to-edge must not stop the recording"
+        );
+        assert_eq!(state.stage, Stage::Recording(BINDING.to_string()));
+        assert!(state.is_locked(), "the tap must lock the session on");
+
+        // The next press — long after the drain of that empty start — is what
+        // ends the session, per tap semantics.
+        let mut stop_press = input(mode, true);
+        stop_press.received_at = t0 + ms(5000);
+        assert!(matches!(
+            state.on_input(stop_press, t0 + ms(5000)),
+            Some(Effect::Stop { .. })
+        ));
     }
 
     /// Hold-or-toggle: a locked session ignores stray releases — only a press
@@ -2024,9 +2135,64 @@ mod tests {
             Some(Effect::Stop {
                 binding_id,
                 post_process,
+                ..
             }) => {
                 assert_eq!(binding_id, BINDING);
                 assert!(post_process);
+            }
+            other => panic!("expected Stop, got {other:?}"),
+        }
+        assert_eq!(state.stage, Stage::Processing);
+    }
+
+    // Explicit stop requests (Enter key): behave exactly like pressing the
+    // transcribe shortcut a second time, reusing the stored recording binding
+    // so post-processing follows the original session.
+    // ---------------------------------------------------------------------
+
+    /// Stop request while idle is a no-op.
+    #[test]
+    fn stop_request_while_idle_is_noop() {
+        let mut state = CoordinatorState::new();
+        assert!(state.on_stop_request("enter".to_string()).is_none());
+        assert_eq!(state.stage, Stage::Idle);
+    }
+
+    /// Stop request while processing is a no-op — the pipeline still finishes.
+    #[test]
+    fn stop_request_while_processing_is_noop() {
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+        assert!(matches!(
+            state.on_input(toggle_input(true), t0),
+            Some(Effect::Start { .. })
+        ));
+        assert!(matches!(
+            state.on_input(toggle_input(true), t0 + ms(100)),
+            Some(Effect::Stop { .. })
+        ));
+        assert_eq!(state.stage, Stage::Processing);
+        assert!(state.on_stop_request("enter".to_string()).is_none());
+        assert_eq!(state.stage, Stage::Processing);
+    }
+
+    /// Stop request ends a locked toggle recording with the original binding.
+    #[test]
+    fn stop_request_stops_locked_recording_with_original_binding() {
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+        assert!(matches!(
+            state.on_input(toggle_input(true), t0),
+            Some(Effect::Start { .. })
+        ));
+        match state.on_stop_request("enter".to_string()) {
+            Some(Effect::Stop {
+                binding_id,
+                hotkey_string,
+                ..
+            }) => {
+                assert_eq!(binding_id, BINDING);
+                assert_eq!(hotkey_string, "enter");
             }
             other => panic!("expected Stop, got {other:?}"),
         }
@@ -2135,5 +2301,67 @@ mod tests {
         ));
         assert_eq!(state.session_post_process, Some(false));
         assert_eq!(state.session_mode, Some(mode));
+    }
+
+    /// Stop request ends an unlocked hold recording mid-hold, even though the
+    /// original key is still down.
+    #[test]
+    fn stop_request_stops_unlocked_hold_mid_hold() {
+        let mode = ShortcutActivation::HoldOrToggle;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+        assert!(matches!(
+            state.on_input(input(mode, true), t0),
+            Some(Effect::Start { .. })
+        ));
+        assert!(!state.is_locked());
+        match state.on_stop_request("enter".to_string()) {
+            Some(Effect::Stop { binding_id, .. }) => assert_eq!(binding_id, BINDING),
+            other => panic!("expected Stop, got {other:?}"),
+        }
+        assert_eq!(state.stage, Stage::Processing);
+    }
+
+    /// Stop request preserves the post-process session: the stored recording
+    /// binding (not the Enter source) drives the stop effect.
+    #[test]
+    fn stop_request_preserves_post_process_binding() {
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+        let effect = state.on_input(toggle_input_for(OTHER_BINDING, true), t0);
+        assert!(matches!(effect, Some(Effect::Start { .. })));
+        assert_eq!(state.stage, Stage::Recording(OTHER_BINDING.to_string()));
+        match state.on_stop_request("enter".to_string()) {
+            Some(Effect::Stop { binding_id, .. }) => {
+                assert_eq!(binding_id, OTHER_BINDING)
+            }
+            other => panic!("expected Stop, got {other:?}"),
+        }
+        assert_eq!(state.stage, Stage::Processing);
+    }
+
+    /// Stop request while a hold release is still deferred in its grace
+    /// window: recording stops exactly once, and the later grace expiry
+    /// resolves against the busy pipeline as a harmless no-op.
+    #[test]
+    fn stop_request_during_deferred_release_stops_once() {
+        let mode = ShortcutActivation::HoldOrToggle;
+        let mut state = CoordinatorState::new();
+        let t0 = Instant::now();
+        assert!(matches!(
+            state.on_input(input(mode, true), t0),
+            Some(Effect::Start { .. })
+        ));
+        // Release after an 800ms hold: deferred, not yet resolved.
+        assert!(state.on_input(input(mode, false), t0 + ms(800)).is_none());
+        assert!(state.grace_deadline().is_some());
+        // Enter arrives before the grace elapses.
+        assert!(matches!(
+            state.on_stop_request("enter".to_string()),
+            Some(Effect::Stop { .. })
+        ));
+        assert_eq!(state.stage, Stage::Processing);
+        assert!(state.on_grace_expired().is_none());
+        assert_eq!(state.stage, Stage::Processing);
     }
 }

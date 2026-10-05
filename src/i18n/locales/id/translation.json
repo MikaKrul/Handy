@@ -207,6 +207,10 @@
           "push_to_talk": "Merekam selama Anda menahan pintasan",
           "toggle": "Ketuk pintasan untuk mulai merekam, lalu ketuk lagi untuk berhenti"
         }
+      },
+      "stopWithEnter": {
+        "label": "Berhenti dengan Enter",
+        "description": "Menekan Enter saat merekam akan menghentikannya, sama seperti menekan pintasan transkripsi untuk kedua kalinya. Transkripsi kemudian ditempel, atau diproses pasca terlebih dahulu jika rekaman dimulai dengan pasca-pemrosesan."
       }
     },
     "models": {
@@ -438,7 +442,26 @@
           "descriptionDefault": "Pilih model yang disediakan oleh penyedia yang dipilih.",
           "placeholderWithOptions": "Cari atau pilih model",
           "placeholderNoOptions": "Ketik nama model",
-          "refreshModels": "Segarkan model"
+          "refreshModels": "Segarkan model",
+          "test": "uji",
+          "testing": "menguji...",
+          "testSuccess": "Model berfungsi",
+          "retry": "Coba lagi",
+          "dismiss": "Tutup",
+          "useCustomModel": "Gunakan \"{{model}}\"",
+          "errors": {
+            "authentication": "Penyedia menolak kunci API.",
+            "modelNotFound": "Penyedia tidak mengenali model ini.",
+            "rateLimited": "Batas laju atau kuota terlampaui.",
+            "provider": "Penyedia mengembalikan kesalahan.",
+            "timeout": "Penyedia tidak menjawab tepat waktu.",
+            "unexpectedResponse": "Model membalas dengan hal yang tidak terduga.",
+            "emptyResponse": "Penyedia mengembalikan respons kosong.",
+            "noProvider": "Tidak ada penyedia pascaproses yang dipilih.",
+            "noModel": "Tidak ada model pascaproses yang dipilih.",
+            "missingApiKey": "Tidak ada kunci API yang dikonfigurasi untuk penyedia ini.",
+            "unsupportedPlatform": "Penyedia ini tidak tersedia di perangkat ini."
+          }
         }
       },
       "prompts": {

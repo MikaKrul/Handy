@@ -227,6 +227,10 @@
           "push_to_talk": "Kısayolu basılı tuttuğunuz sürece kaydeder",
           "toggle": "Kaydı başlatmak için kısayola dokunun, durdurmak için tekrar dokunun"
         }
+      },
+      "stopWithEnter": {
+        "label": "Enter ile Durdur",
+        "description": "Kayıt sırasında Enter'a basmak, transkripsiyon kısayoluna ikinci kez basmakla aynı şekilde kaydı durdurur. Ardından metin yapıştırılır; kayıt son işlemeyle başlatıldıysa önce son işlem uygulanır."
       }
     },
     "sound": {
@@ -242,6 +246,10 @@
         "description": "Kayıt yapılacak giriş kanalını seçin. Ses arabiriminizde birden fazla giriş varsa bu seçeneği kullanın.",
         "average": "Tüm kanalların ortalaması",
         "channel": "Kanal {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "Kayıt sırasında medyayı duraklat",
+        "description": "Kayıt sırasında müzik veya video oynatmayı duraklatma ve sonrasında devam ettirme"
       },
       "audioFeedback": {
         "label": "Sesli Geri Bildirim",
@@ -438,7 +446,26 @@
           "descriptionDefault": "Seçili sağlayıcının sunduğu bir modeli seçin.",
           "placeholderWithOptions": "Model ara veya seç",
           "placeholderNoOptions": "Model adı yazın",
-          "refreshModels": "Modelleri Yenile"
+          "refreshModels": "Modelleri Yenile",
+          "test": "test et",
+          "testing": "test ediliyor...",
+          "testSuccess": "Model çalışıyor",
+          "retry": "Yeniden dene",
+          "dismiss": "Kapat",
+          "useCustomModel": "\"{{model}}\" kullan",
+          "errors": {
+            "authentication": "Sağlayıcı API anahtarını reddetti.",
+            "modelNotFound": "Sağlayıcı bu modeli tanımıyor.",
+            "rateLimited": "Hız sınırına veya kotasına aşıldı.",
+            "provider": "Sağlayıcı bir hata döndürdü.",
+            "timeout": "Sağlayıcı zamanında yanıt vermedi.",
+            "unexpectedResponse": "Model beklenmedik bir yanıt verdi.",
+            "emptyResponse": "Sağlayıcı boş bir yanıt döndürdü.",
+            "noProvider": "Hiçbir son işlem sağlayıcısı seçilmedi.",
+            "noModel": "Hiçbir son işlem modeli seçilmedi.",
+            "missingApiKey": "Bu sağlayıcı için API anahtarı yapılandırılmadı.",
+            "unsupportedPlatform": "Bu sağlayıcı bu cihazda kullanılamıyor."
+          }
         }
       },
       "prompts": {

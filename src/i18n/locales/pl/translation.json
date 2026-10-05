@@ -227,6 +227,10 @@
           "push_to_talk": "Nagrywa, dopóki trzymasz skrót",
           "toggle": "Dotknij skrótu, aby rozpocząć nagrywanie, dotknij ponownie, aby zatrzymać"
         }
+      },
+      "stopWithEnter": {
+        "label": "Zatrzymaj klawiszem Enter",
+        "description": "Naciśnięcie Enter podczas nagrywania zatrzymuje je, tak samo jak ponowne naciśnięcie skrótu transkrypcji. Transkrypcja jest następnie wklejana, a jeśli nagrywanie rozpoczęto z przetwarzaniem końcowym, najpierw jest przetwarzana."
       }
     },
     "sound": {
@@ -242,6 +246,10 @@
         "description": "Wybierz kanał wejściowy, z którego chcesz nagrywać. Użyj tej opcji, jeśli interfejs audio ma wiele wejść.",
         "average": "Uśrednij wszystkie kanały",
         "channel": "Kanał {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "Wstrzymaj multimedia podczas nagrywania",
+        "description": "Wstrzymanie odtwarzania muzyki lub wideo na czas nagrywania i wznowienie go po zakończeniu"
       },
       "audioFeedback": {
         "label": "Informacja dźwiękowa",
@@ -438,7 +446,26 @@
           "descriptionDefault": "Wybierz model udostępniony przez wybranego dostawcę.",
           "placeholderWithOptions": "Wyszukaj lub wybierz model",
           "placeholderNoOptions": "Wpisz nazwę modelu",
-          "refreshModels": "Odśwież modele"
+          "refreshModels": "Odśwież modele",
+          "test": "testuj",
+          "testing": "testowanie...",
+          "testSuccess": "Model działa",
+          "retry": "Spróbuj ponownie",
+          "dismiss": "Zamknij",
+          "useCustomModel": "Użyj „{{model}}”",
+          "errors": {
+            "authentication": "Dostawca odrzucił klucz API.",
+            "modelNotFound": "Dostawca nie zna tego modelu.",
+            "rateLimited": "Przekroczono limit żądań lub limit przydziału.",
+            "provider": "Dostawca zwrócił błąd.",
+            "timeout": "Dostawca nie odpowiedział na czas.",
+            "unexpectedResponse": "Model odpowiedział w nieoczekiwany sposób.",
+            "emptyResponse": "Dostawca zwrócił pustą odpowiedź.",
+            "noProvider": "Nie wybrano dostawcy przetwarzania końcowego.",
+            "noModel": "Nie wybrano modelu przetwarzania końcowego.",
+            "missingApiKey": "Dla tego dostawcy nie skonfigurowano klucza API.",
+            "unsupportedPlatform": "Ten dostawca nie jest dostępny na tym urządzeniu."
+          }
         }
       },
       "prompts": {

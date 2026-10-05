@@ -227,6 +227,10 @@
           "push_to_talk": "Nahrává, dokud držíte zkratku",
           "toggle": "Klepněte na zkratku pro zahájení nahrávání, klepněte znovu pro zastavení"
         }
+      },
+      "stopWithEnter": {
+        "label": "Zastavit pomocí Enter",
+        "description": "Stisknutí klávesy Enter během nahrávání ho zastaví, stejně jako opětovné stisknutí klávesové zkratky pro přepis. Přepis se poté vloží, případně se nejprve dodatečně zpracuje, pokud nahrávání začalo s dodatečným zpracováním."
       }
     },
     "sound": {
@@ -242,6 +246,10 @@
         "description": "Vyberte vstupní kanál, ze kterého se má nahrávat. Tuto možnost použijte, pokud má vaše zvukové rozhraní více vstupů.",
         "average": "Průměr všech kanálů",
         "channel": "Kanál {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "Pozastavit média při nahrávání",
+        "description": "Pozastavení přehrávání hudby nebo videa během nahrávání a jeho obnovení po skončení"
       },
       "audioFeedback": {
         "label": "Zvuková odezva",
@@ -438,7 +446,26 @@
           "descriptionDefault": "Vyberte model dostupný u vybraného poskytovatele.",
           "placeholderWithOptions": "Vyhledejte nebo vyberte model",
           "placeholderNoOptions": "Zadejte název modelu",
-          "refreshModels": "Obnovit modely"
+          "refreshModels": "Obnovit modely",
+          "test": "testovat",
+          "testing": "testování...",
+          "testSuccess": "Model funguje",
+          "retry": "Zkusit znovu",
+          "dismiss": "Zavřít",
+          "useCustomModel": "Použít „{{model}}“",
+          "errors": {
+            "authentication": "Poskytovatel odmítl API klíč.",
+            "modelNotFound": "Poskytovatel tento model nezná.",
+            "rateLimited": "Překročen limit požadavků nebo kvóta.",
+            "provider": "Poskytovatel vrátil chybu.",
+            "timeout": "Poskytovatel neodpověděl včas.",
+            "unexpectedResponse": "Model odpověděl neočekávaně.",
+            "emptyResponse": "Poskytovatel vrátil prázdnou odpověď.",
+            "noProvider": "Není vybran žádný poskytovatel post-processingu.",
+            "noModel": "Není vybran žádný model post-processingu.",
+            "missingApiKey": "Pro tento poskytovatele není nastaven žádný API klíč.",
+            "unsupportedPlatform": "Tento poskytovatel není na tomto zařízení k dispozici."
+          }
         }
       },
       "prompts": {

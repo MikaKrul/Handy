@@ -50,6 +50,25 @@ pub fn handle_shortcut_event(
         return;
     }
 
+    // Stop bindings (Enter and numpad Enter): end the active recording
+    // exactly like pressing the transcribe shortcut a second time —
+    // transcribe, then post-process when the session started with
+    // post-processing, then paste. Only fire on key press. Unlike cancel they
+    // never discard audio. CoordinatorState is the single authority on the
+    // lifecycle: the request is a no-op unless a recording is actually active,
+    // so no recording check is needed here.
+    if super::is_stop_binding(binding_id) {
+        if !settings.stop_with_enter || !is_pressed {
+            return;
+        }
+        if let Some(coordinator) = app.try_state::<TranscriptionCoordinator>() {
+            coordinator.request_stop(hotkey_string);
+        } else {
+            warn!("TranscriptionCoordinator is not initialized");
+        }
+        return;
+    }
+
     let Some(action) = ACTION_MAP.get(binding_id) else {
         warn!(
             "No action defined in ACTION_MAP for shortcut ID '{}'. Shortcut: '{}', Pressed: {}",

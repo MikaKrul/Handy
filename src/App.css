@@ -13,6 +13,7 @@
   --color-mid-gray: var(--color-mid-gray);
   --color-warning: var(--color-warning);
   --color-error: var(--color-error);
+  --color-success: var(--color-success);
 }
 
 :root {

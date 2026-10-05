@@ -207,6 +207,10 @@
           "push_to_talk": "按住快捷鍵期間錄音",
           "toggle": "輕按快捷鍵開始錄音，再次輕按停止"
         }
+      },
+      "stopWithEnter": {
+        "label": "用 Enter 停止",
+        "description": "在錄音時按下 Enter 會停止錄音，效果與再次按下轉錄快捷鍵相同。隨後會貼上轉錄文字；若錄音是以後期處理模式開始，則會先進行後期處理。"
       }
     },
     "models": {
@@ -242,6 +246,10 @@
         "description": "選擇要錄音的輸入聲道。如果您的音訊介面有多個輸入，請使用此選項。",
         "average": "所有聲道的平均值",
         "channel": "聲道 {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "錄製時暫停媒體",
+        "description": "錄製期間暫停音樂或影片播放，結束後繼續播放"
       },
       "audioFeedback": {
         "label": "聲音回饋",
@@ -438,7 +446,26 @@
           "descriptionDefault": "從所選供應商的可用模型中選擇",
           "placeholderWithOptions": "搜尋或選擇模型",
           "placeholderNoOptions": "輸入模型名稱",
-          "refreshModels": "重新整理模型"
+          "refreshModels": "重新整理模型",
+          "test": "測試",
+          "testing": "測試中...",
+          "testSuccess": "模型運作正常",
+          "retry": "重試",
+          "dismiss": "關閉",
+          "useCustomModel": "使用「{{model}}」",
+          "errors": {
+            "authentication": "供應商拒絕了 API 金鑰。",
+            "modelNotFound": "供應商不認識此模型。",
+            "rateLimited": "已超出速率限制或配額。",
+            "provider": "供應商傳回了錯誤。",
+            "timeout": "供應商未及時回應。",
+            "unexpectedResponse": "模型回傳了預期外的內容。",
+            "emptyResponse": "供應商傳回了空白回應。",
+            "noProvider": "未選擇後處理供應商。",
+            "noModel": "未選擇後處理模型。",
+            "missingApiKey": "此供應商未設定 API 金鑰。",
+            "unsupportedPlatform": "此供應商在此裝置上無法使用。"
+          }
         }
       },
       "prompts": {

@@ -207,6 +207,10 @@
           "push_to_talk": "מקליט כל עוד קיצור הדרך לחוץ",
           "toggle": "הקישו על קיצור הדרך כדי להתחיל להקליט, והקישו שוב כדי לעצור"
         }
+      },
+      "stopWithEnter": {
+        "label": "עצירה עם Enter",
+        "description": "לחיצה על Enter במהלך ההקלטה עוצרת אותה, בדיוק כמו לחיצה נוספת על קיצור התמלול. התמלול מודבק לאחר מכן, או עובר עיבוד לאחר מכן קודם אם ההקלטה התחילה עם עיבוד."
       }
     },
     "models": {
@@ -242,6 +246,10 @@
         "description": "בחרו את ערוץ הקלט שממנו תתבצע ההקלטה. השתמשו באפשרות זו אם לממשק השמע שלכם יש מספר כניסות.",
         "average": "ממוצע של כל הערוצים",
         "channel": "ערוץ {{n}}"
+      },
+      "pauseMediaWhileRecording": {
+        "label": "השהיית מדיה בזמן הקלטה",
+        "description": "השהיית נגינת מוזיקה או וידאו במהלך ההקלטה והמשכתה לאחר מכן"
       },
       "audioFeedback": {
         "label": "משוב קולי",
@@ -438,7 +446,26 @@
           "descriptionDefault": "בחר מודל שהספק הנבחר חושף.",
           "placeholderWithOptions": "חפש או בחר מודל",
           "placeholderNoOptions": "הקלד שם מודל",
-          "refreshModels": "רענן מודלים"
+          "refreshModels": "רענן מודלים",
+          "test": "בדיקה",
+          "testing": "בבדיקה...",
+          "testSuccess": "המודל עובד",
+          "retry": "נסה שוב",
+          "dismiss": "סגור",
+          "useCustomModel": "השתמש ב-\"{{model}}\"",
+          "errors": {
+            "authentication": "הספק דחה את מפתח ה-API.",
+            "modelNotFound": "הספק אינו מכיר את המודל הזה.",
+            "rateLimited": "חריגה ממגבלת הקצב או מהמכסת.",
+            "provider": "הספק החזיר שגיאה.",
+            "timeout": "הספק לא ענה בזמן.",
+            "unexpectedResponse": "המודל ענה באופן לא צפוי.",
+            "emptyResponse": "הספק החזיר תשובה ריקה.",
+            "noProvider": "לא נבחר ספק לעיבוד-לאחר.",
+            "noModel": "לא נבחר מודל לעיבוד-לאחר.",
+            "missingApiKey": "לא מוגדר מפתח API עבור ספק זה.",
+            "unsupportedPlatform": "ספק זה אינו זמין במכשיר הזה."
+          }
         }
       },
       "prompts": {
