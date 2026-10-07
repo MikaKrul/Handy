@@ -737,7 +737,8 @@
     "transcribing": "מתמלל...",
     "processing": "מעבד...",
     "switchToPostProcessing": "עיבוד נוסף מופעל",
-    "switchToRawTranscript": "עיבוד נוסף כבוי"
+    "switchToRawTranscript": "עיבוד נוסף כבוי",
+    "loadingModel": "טוען מודל..."
   },
   "whatsNew": {
     "title": "חדש ב-Handy v{{version}}"

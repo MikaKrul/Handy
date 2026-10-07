@@ -737,7 +737,8 @@
     "transcribing": "Trascrizione...",
     "processing": "Elaborazione...",
     "switchToPostProcessing": "Post-elaborazione attiva",
-    "switchToRawTranscript": "Post-elaborazione non attiva"
+    "switchToRawTranscript": "Post-elaborazione non attiva",
+    "loadingModel": "Caricamento del modello..."
   },
   "whatsNew": {
     "title": "Novità in Handy v{{version}}"

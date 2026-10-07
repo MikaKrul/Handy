@@ -737,7 +737,8 @@
     "transcribing": "Transkriberar...",
     "processing": "Bearbetar...",
     "switchToPostProcessing": "Efterbehandling på",
-    "switchToRawTranscript": "Efterbehandling av"
+    "switchToRawTranscript": "Efterbehandling av",
+    "loadingModel": "Laddar modell..."
   },
   "whatsNew": {
     "title": "Nytt i Handy v{{version}}"

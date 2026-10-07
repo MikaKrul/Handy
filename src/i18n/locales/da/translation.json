@@ -740,7 +740,8 @@
     "transcribing": "Transskriberer...",
     "processing": "Behandler...",
     "switchToPostProcessing": "Efterbehandling til",
-    "switchToRawTranscript": "Efterbehandling fra"
+    "switchToRawTranscript": "Efterbehandling fra",
+    "loadingModel": "Indlæser model..."
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} blokerer muligvis 1 genvej",
