@@ -1939,6 +1939,12 @@ mod tests {
         match state.on_stop_request("enter".to_string()) {
             Some(Effect::Stop { binding_id, .. }) => {
                 assert_eq!(binding_id, OTHER_BINDING)
+            }
+            other => panic!("expected Stop, got {other:?}"),
+        }
+        assert_eq!(state.stage, Stage::Processing);
+    }
+
     // Mid-recording post-processing switch (feat/switch-to-post-processing-
     // during-transcription). Pressing the *other* transcribe binding while a
     // toggle-based session is recording flips the per-session flag; the Stop
