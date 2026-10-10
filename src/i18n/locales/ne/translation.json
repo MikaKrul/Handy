@@ -739,8 +739,6 @@
   "overlay": {
     "transcribing": "ट्रान्सक्राइब गरिँदैछ...",
     "processing": "प्रशोधन गरिँदैछ...",
-    "switchToPostProcessing": "पोस्ट-प्रोसेसिङ सक्रिय",
-    "switchToRawTranscript": "पोस्ट-प्रोसेसिङ निष्क्रिय",
     "loadingModel": "मोडेल लोड गरिँदैछ..."
   },
   "secureInput": {

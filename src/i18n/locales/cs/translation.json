@@ -736,8 +736,6 @@
   "overlay": {
     "transcribing": "Přepisuji...",
     "processing": "Zpracovávám...",
-    "switchToPostProcessing": "Postprocessing zapnut",
-    "switchToRawTranscript": "Postprocessing vypnut",
     "loadingModel": "Načítání modelu..."
   },
   "whatsNew": {

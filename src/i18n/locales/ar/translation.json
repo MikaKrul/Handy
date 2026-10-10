@@ -734,8 +734,6 @@
     }
   },
   "overlay": {
-    "switchToPostProcessing": "المعالجة اللاحقة مفعّلة",
-    "switchToRawTranscript": "المعالجة اللاحقة معطّلة",
     "transcribing": "جاري التفريغ...",
     "processing": "جاري المعالجة...",
     "loadingModel": "جارٍ تحميل النموذج..."

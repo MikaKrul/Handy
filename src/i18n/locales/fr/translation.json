@@ -736,8 +736,6 @@
   "overlay": {
     "transcribing": "Transcription...",
     "processing": "Traitement...",
-    "switchToPostProcessing": "Post-traitement activé",
-    "switchToRawTranscript": "Post-traitement désactivé",
     "loadingModel": "Chargement du modèle..."
   },
   "whatsNew": {

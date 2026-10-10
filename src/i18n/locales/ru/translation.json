@@ -736,8 +736,6 @@
   "overlay": {
     "transcribing": "Расшифровка...",
     "processing": "Обработка...",
-    "switchToPostProcessing": "Постобработка включена",
-    "switchToRawTranscript": "Постобработка выключена",
     "loadingModel": "Загрузка модели..."
   },
   "whatsNew": {

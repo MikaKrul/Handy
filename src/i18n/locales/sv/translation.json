@@ -736,8 +736,6 @@
   "overlay": {
     "transcribing": "Transkriberar...",
     "processing": "Bearbetar...",
-    "switchToPostProcessing": "Efterbehandling på",
-    "switchToRawTranscript": "Efterbehandling av",
     "loadingModel": "Laddar modell..."
   },
   "whatsNew": {

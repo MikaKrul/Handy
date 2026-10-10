@@ -739,8 +739,6 @@
   "overlay": {
     "transcribing": "Transcribing...",
     "processing": "Processing...",
-    "switchToPostProcessing": "Post-processing on",
-    "switchToRawTranscript": "Post-processing off",
     "loadingModel": "Loading model..."
   },
   "secureInput": {

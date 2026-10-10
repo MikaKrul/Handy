@@ -735,8 +735,6 @@
   "overlay": {
     "transcribing": "Mentranskripsikan...",
     "processing": "Memproses...",
-    "switchToPostProcessing": "Pasca-pemrosesan aktif",
-    "switchToRawTranscript": "Pasca-pemrosesan nonaktif",
     "loadingModel": "Memuat model..."
   },
   "secureInput": {

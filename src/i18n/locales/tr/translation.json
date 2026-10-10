@@ -736,8 +736,6 @@
   "overlay": {
     "transcribing": "Transkribe ediliyor...",
     "processing": "İşleniyor...",
-    "switchToPostProcessing": "Son işleme açık",
-    "switchToRawTranscript": "Son işleme kapalı",
     "loadingModel": "Model yükleniyor..."
   },
   "whatsNew": {

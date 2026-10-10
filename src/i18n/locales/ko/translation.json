@@ -736,8 +736,6 @@
   "overlay": {
     "transcribing": "텍스트로 변환 중...",
     "processing": "처리 중...",
-    "switchToPostProcessing": "후처리 켜짐",
-    "switchToRawTranscript": "후처리 꺼짐",
     "loadingModel": "모델 로딩 중..."
   },
   "whatsNew": {

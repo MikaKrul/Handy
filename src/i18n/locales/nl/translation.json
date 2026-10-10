@@ -739,8 +739,6 @@
   "overlay": {
     "transcribing": "Transcriberen...",
     "processing": "Verwerken...",
-    "switchToPostProcessing": "Post-processing aan",
-    "switchToRawTranscript": "Post-processing uit",
     "loadingModel": "Model laden..."
   },
   "secureInput": {

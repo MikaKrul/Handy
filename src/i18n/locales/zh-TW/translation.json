@@ -736,8 +736,6 @@
   "overlay": {
     "transcribing": "正在轉錄...",
     "processing": "處理中...",
-    "switchToPostProcessing": "後期處理已開啟",
-    "switchToRawTranscript": "後期處理已關閉",
     "loadingModel": "正在載入模型..."
   },
   "whatsNew": {

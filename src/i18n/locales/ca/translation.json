@@ -735,8 +735,6 @@
   "overlay": {
     "transcribing": "S'està transcrivint...",
     "processing": "S'està processant...",
-    "switchToPostProcessing": "Postprocessament activat",
-    "switchToRawTranscript": "Postprocessament desactivat",
     "loadingModel": "S'està carregant el model..."
   },
   "secureInput": {
