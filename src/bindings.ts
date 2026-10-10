@@ -1013,7 +1013,7 @@ transcribe_gpu_device?: string | null; extra_recording_buffer_ms?: number; vad_e
  */
 vad_backend?: VadBackend; 
 /**
- * Which recording overlay to show: None / Minimal / Live. Streaming mode is
+ * Which recording overlay to show: None / Minimal / Mini / Live. Streaming mode is
  * not gated on this — that follows model capability. Migrated from the old
  * `overlay_position` (position `none` → style `None`).
  */
@@ -1091,10 +1091,11 @@ export type OverlayPosition = "top" | "bottom"
 /**
  * Which recording overlay to display. `Minimal` and `Live` share one base
  * (the pill); `Live` grows into the panel that shows live transcription text.
+ * `Mini` is a waveform-only pill (no dot, timer, labels or cancel button).
  * `None` hides the overlay entirely. Decoupled from whether the model runs in
  * streaming mode (that is driven purely by model capability).
  */
-export type OverlayStyle = "none" | "minimal" | "live"
+export type OverlayStyle = "none" | "minimal" | "mini" | "live"
 export type PaginatedHistory = { entries: HistoryEntry[]; has_more: boolean }
 export type PasteMethod = "ctrl_v" | "direct" | "none" | "shift_insert" | "ctrl_shift_v" | "external_script"
 export type PermissionAccess = "allowed" | "denied" | "unknown"

@@ -727,6 +727,7 @@ pub fn change_overlay_style_setting(app: AppHandle, style: String) -> Result<(),
     let parsed = match style.as_str() {
         "none" => OverlayStyle::None,
         "minimal" => OverlayStyle::Minimal,
+        "mini" => OverlayStyle::Mini,
         "live" => OverlayStyle::Live,
         other => {
             warn!("Invalid overlay style '{}', defaulting to minimal", other);

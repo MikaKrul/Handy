@@ -469,3 +469,80 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* ============================================================
+   Mini overlay — waveform while recording, spinner while working
+   (Whisperflow-style). As small as it gets: a ~96x30 pill with 5
+   Handy-pink bars or a small spinner — no dot, timer, label or cancel
+   button. Flat surface + hairline border, same visual language as the
+   other overlays, only smaller. Entrance is the shared stage fade (no
+   card-level animation of its own).
+   ============================================================ */
+.scard.mini {
+  animation: none;
+  width: 96px;
+  height: 30px;
+  border-radius: 999px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.mwave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 14px;
+}
+.mwave i {
+  width: 3px;
+  min-height: 3px;
+  max-height: 14px;
+  border-radius: 2px;
+  background: var(--s-accent);
+  transition:
+    height 80ms linear,
+    background-color 180ms ease,
+    opacity 180ms ease;
+}
+/* Arming (no mic samples yet): quiet travelling pulse, same idea as .swave. */
+.mwave.arming i {
+  height: 5px !important;
+  background: var(--s-muted);
+  opacity: 0.35;
+  animation: mwave-arming 900ms ease-in-out infinite;
+}
+.mwave.arming i:nth-child(2),
+.mwave.arming i:nth-child(4) {
+  animation-delay: 150ms;
+}
+.mwave.arming i:nth-child(3) {
+  animation-delay: 300ms;
+}
+@keyframes mwave-arming {
+  0%,
+  100% {
+    transform: scaleY(0.55);
+    opacity: 0.25;
+  }
+  50% {
+    transform: scaleY(1.5);
+    opacity: 0.7;
+  }
+}
+/* Working (transcribing / processing): a small Handy-pink spinner — the same
+   spinner language as the other overlays, only without the label. */
+.mspinner {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--s-hair);
+  border-top-color: var(--s-accent);
+  animation: sspin 0.7s linear infinite;
+  flex: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mwave.arming i,
+  .mspinner {
+    animation: none;
+  }
+}

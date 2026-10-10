@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import "./RecordingOverlay.css";
 import { commands, events } from "@/bindings";
 import type {
+  OverlayStyle,
   StreamPhase,
   StreamPhaseEvent,
   StreamTextEvent,
@@ -18,6 +19,10 @@ type OverlayState = "recording" | "streaming" | "transcribing" | "processing";
 // Number of reactive bars in the waveform (the simple, smoothed style shared by
 // every overlay form). Mic levels arrive as 16 FFT buckets; we take the first N.
 const WAVE_BARS = 9;
+
+// Bars in the Mini pill. Fewer bars keep the pill as small as possible while
+// still reading as a live waveform.
+const MINI_WAVE_BARS = 5;
 
 // Only call out a model load in the Live preview once it has run this long.
 // Warm loads finish in well under this (~0.2s on Apple Silicon, ~1.5s on a
@@ -58,6 +63,9 @@ const RecordingOverlay: React.FC = () => {
   // Overlay placement (top vs bottom of the screen). The Live panel grows downward
   // from a top overlay (oldest line under the pill) and upward from a bottom one.
   const [position, setPosition] = useState<"top" | "bottom">("bottom");
+  // Which overlay form to render. Read from settings on every show so switching
+  // Minimal/Mini/Live takes effect on the next recording without a reload.
+  const [overlayStyle, setOverlayStyle] = useState<OverlayStyle>("live");
   // True once live text overflows the cap. A top overlay fades its top edge only
   // while overflowing, so the resting first line stays crisp flush under the pill.
   const [overflowing, setOverflowing] = useState(false);
@@ -93,6 +101,7 @@ const RecordingOverlay: React.FC = () => {
             setPosition(
               settings.data.overlay_position === "top" ? "top" : "bottom",
             );
+            setOverlayStyle(settings.data.overlay_style ?? "live");
           }
         } catch {
           // Keep the previous/default placement if settings can't be read.
@@ -284,6 +293,52 @@ const RecordingOverlay: React.FC = () => {
       <div className="sbase-r">{showCancel && cancelBtn}</div>
     </div>
   );
+
+  // ---- Mini overlay: waveform while recording, spinner while working ----
+  // No dot, timer, label or cancel button — just the Handy-pink waveform while
+  // recording, or a small spinner while transcribing/processing (or a streaming
+  // finalize).
+  if (overlayStyle === "mini") {
+    const miniWorking =
+      state === "transcribing" ||
+      state === "processing" ||
+      (state === "streaming" && phase === "working");
+    const miniLabel =
+      state === "processing" ||
+      (state === "streaming" && phase === "working" && workKind === "polishing")
+        ? t("overlay.processing")
+        : transcribingLabel;
+
+    return (
+      <div
+        dir={direction}
+        className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
+      >
+        <div
+          role="status"
+          aria-label={miniWorking ? miniLabel : undefined}
+          className="scard mini"
+        >
+          {miniWorking ? (
+            <span className="mspinner" />
+          ) : (
+            <div className={`mwave ${captureReady ? "ready" : "arming"}`}>
+              {levels
+                .slice(0, MINI_WAVE_BARS)
+                .map((v, i) => (
+                  <i
+                    key={i}
+                    style={{
+                      height: `${Math.max(3, Math.min(14, 3 + Math.pow(v, 0.7) * 11))}px`,
+                    }}
+                  />
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   // ---- Live overlay: a pill that sculpts open into a panel ----
   if (state === "streaming") {
