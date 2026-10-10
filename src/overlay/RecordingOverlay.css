@@ -469,3 +469,18 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Mid-recording post-processing switch feedback: the pill flashes a brief
+   accent ring while the recording row (waveform included) stays put, so the
+   overlay keeps reading as "still recording" throughout the switch. */
+.scard.spp-flash {
+  animation: spp-flash 1.1s ease-out;
+}
+@keyframes spp-flash {
+  0% {
+    box-shadow: 0 0 0 3px var(--s-accent-soft);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
