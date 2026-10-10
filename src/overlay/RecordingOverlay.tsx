@@ -341,25 +341,16 @@ const RecordingOverlay: React.FC = () => {
     </div>
   );
 
-  // ---- Mini overlay: waveform-only pill, nothing else ----
-  // No dot, timer, label or cancel button — just the bars in Handy pink. While
-  // recording the bars follow the mic; while transcribing/processing (or a
-  // streaming finalize) they play a soft synthetic wave so the pill keeps
-  // breathing without any spinner or text. Post-processing uses the same pill
-  // with a slightly faster wave so the mode change reads without new chrome.
+  // ---- Mini overlay: waveform while recording, spinner while working ----
+  // No dot, timer, label or cancel button — just the Handy-pink waveform while
+  // recording, or a small spinner while transcribing/processing (or a streaming
+  // finalize). The mid-recording post-processing switch reuses the shared
+  // accent-ring flash (`spp-flash`): the same highlight as the other overlays.
   if (overlayStyle === "mini") {
     const miniWorking =
       state === "transcribing" ||
       state === "processing" ||
       (state === "streaming" && phase === "working");
-    const miniProcessing =
-      state === "processing" ||
-      (state === "streaming" && phase === "working" && workKind === "polishing");
-    const miniBars = miniWorking
-      ? [6, 10, 14, 10, 6]
-      : levels
-          .slice(0, MINI_WAVE_BARS)
-          .map((v) => Math.max(3, Math.min(14, 3 + Math.pow(v, 0.7) * 11)));
     const miniLabel =
       state === "processing" ||
       (state === "streaming" && phase === "working" && workKind === "polishing")
@@ -374,17 +365,24 @@ const RecordingOverlay: React.FC = () => {
         <div
           role="status"
           aria-label={miniWorking ? miniLabel : undefined}
-          className={`scard mini ${miniWorking ? "mworking" : ""} ${
-            miniProcessing ? "mprocessing" : ""
-          } ${postProcessNotice !== null ? "spp-flash" : ""}`}
+          className={`scard mini ${postProcessNotice !== null ? "spp-flash" : ""}`}
         >
-          <div
-            className={`mwave ${captureReady && !miniWorking ? "ready" : miniWorking ? "working" : "arming"}`}
-          >
-            {miniBars.map((h, i) => (
-              <i key={i} style={{ height: `${h}px` }} />
-            ))}
-          </div>
+          {miniWorking ? (
+            <span className="mspinner" />
+          ) : (
+            <div className={`mwave ${captureReady ? "ready" : "arming"}`}>
+              {levels
+                .slice(0, MINI_WAVE_BARS)
+                .map((v, i) => (
+                  <i
+                    key={i}
+                    style={{
+                      height: `${Math.max(3, Math.min(14, 3 + Math.pow(v, 0.7) * 11))}px`,
+                    }}
+                  />
+                ))}
+            </div>
+          )}
         </div>
       </div>
     );

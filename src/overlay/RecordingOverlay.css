@@ -486,29 +486,22 @@
 }
 
 /* ============================================================
-   Mini overlay — waveform-only pill (Whisperflow-style).
-   As small as it gets: a ~96x30 pill with 5 Handy-pink bars and no
-   dot, timer, label or cancel button. Flat surface + hairline border,
-   same visual language as the other overlays, only smaller.
+   Mini overlay — waveform while recording, spinner while working
+   (Whisperflow-style). As small as it gets: a ~96x30 pill with 5
+   Handy-pink bars or a small spinner — no dot, timer, label or cancel
+   button. Flat surface + hairline border, same visual language as the
+   other overlays, only smaller. Entrance is the shared stage fade (no
+   card-level animation of its own), so the post-processing switch flash
+   below always wins without replaying anything.
    ============================================================ */
 .scard.mini {
-  animation: mini-pop 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: none;
   width: 96px;
   height: 30px;
   border-radius: 999px;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-}
-@keyframes mini-pop {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
 }
 .mwave {
   display: flex;
@@ -553,58 +546,29 @@
     opacity: 0.7;
   }
 }
-/* Working (transcribing / processing): synthetic wave + breathing pill, so the
-   pill keeps moving after mic levels stop. No spinner, no text. Processing
-   runs the same wave slightly faster with a touch more glow. */
-.mwave.working i {
-  background: var(--s-accent);
-  transform-origin: center;
-  animation: mwave-work 1.15s ease-in-out infinite;
+/* Working (transcribing / processing): a small Handy-pink spinner — the same
+   spinner language as the other overlays, only without the label. */
+.mspinner {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--s-hair);
+  border-top-color: var(--s-accent);
+  animation: sspin 0.7s linear infinite;
+  flex: none;
 }
-.mwave.working i:nth-child(2),
-.mwave.working i:nth-child(4) {
-  animation-delay: 140ms;
-}
-.mwave.working i:nth-child(3) {
-  animation-delay: 280ms;
-}
-.mwave.working i:nth-child(1),
-.mwave.working i:nth-child(5) {
-  animation-delay: 420ms;
-}
-@keyframes mwave-work {
-  0%,
-  100% {
-    transform: scaleY(0.45);
-    opacity: 0.65;
-  }
-  50% {
-    transform: scaleY(1.15);
-    opacity: 1;
-  }
-}
-.scard.mini.mworking {
-  animation:
-    mini-pop 280ms cubic-bezier(0.22, 1, 0.36, 1),
-    mini-breathe 2.2s ease-in-out 300ms infinite;
-}
-@keyframes mini-breathe {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
-  50% {
-    box-shadow: 0 0 0 3px var(--s-accent-soft);
-  }
-}
-.scard.mini.mprocessing .mwave.working i {
-  animation-duration: 0.8s;
+/* Mid-recording post-processing switch: the same accent-ring flash the other
+   overlays use (`spp-flash`, from the post-processing toggle branch).
+   Explicit rule (higher specificity, later in source) so it beats the
+   `animation: none` above — without it the switch highlight never renders
+   on the mini pill. */
+.scard.mini.spp-flash {
+  animation: spp-flash 1.1s ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
-  .scard.mini,
-  .scard.mini.mworking,
+  .scard.mini.spp-flash,
   .mwave.arming i,
-  .mwave.working i {
+  .mspinner {
     animation: none;
   }
 }
