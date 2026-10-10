@@ -1,5 +1,4 @@
 use crate::TranscriptionCoordinator;
-#[cfg(unix)]
 use log::debug;
 use log::warn;
 use tauri::{AppHandle, Manager};
@@ -16,6 +15,17 @@ use std::thread;
 /// Send a transcription input to the coordinator.
 /// Used by signal handlers, CLI flags, and any other external trigger.
 pub fn send_transcription_input(app: &AppHandle, binding_id: &str, source: &str) {
+    // Post-processing is opt-in via settings (`post_process_enabled`): the
+    // hotkey is only registered while enabled, so external triggers (CLI
+    // flag, signal) must honor the same gate — otherwise they could start
+    // processed recordings or flip a session mid-recording while the user
+    // explicitly opted out in settings.
+    if binding_id == "transcribe_with_post_process"
+        && !crate::settings::get_settings(app).post_process_enabled
+    {
+        debug!("Ignoring '{source}' for post-processing: disabled in settings");
+        return;
+    }
     if let Some(c) = app.try_state::<TranscriptionCoordinator>() {
         c.send_external_input(binding_id, source);
     } else {

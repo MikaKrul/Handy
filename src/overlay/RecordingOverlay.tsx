@@ -19,6 +19,11 @@ type OverlayState = "recording" | "streaming" | "transcribing" | "processing";
 // every overlay form). Mic levels arrive as 16 FFT buckets; we take the first N.
 const WAVE_BARS = 9;
 
+// How long the mid-recording post-processing switch ring stays up. Kept
+// deliberately short: ~700ms confirms the switch while the "still recording"
+// read (pulsing dot + waveform) never disappears.
+const SWITCH_NOTICE_MS = 700;
+
 // Only call out a model load in the Live preview once it has run this long.
 // Warm loads finish in well under this (~0.2s on Apple Silicon, ~1.5s on a
 // Windows CPU backend), so the common case never flashes a loading notice while
@@ -52,6 +57,17 @@ const RecordingOverlay: React.FC = () => {
   const [phase, setPhase] = useState<StreamPhase>("listening");
   const [workKind, setWorkKind] = useState<StreamWorkKind>("transcribing");
   const [elapsed, setElapsed] = useState(0);
+  // Transient mid-recording post-processing switch feedback. The payload
+  // direction (`true`/`false`) is intentionally not shown: the switch is
+  // confirmed with a brief accent ring only, so the waveform (and with it the
+  // "still recording" read) never disappears. Set by the backend
+  // `post-process-toggled` event, auto-cleared after a short delay.
+  const [postProcessNotice, setPostProcessNotice] = useState<boolean | null>(
+    null,
+  );
+  const postProcessTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   // Bumped on each new streaming session so the Live card remounts fresh (replays
   // the pop-in, and never animates in from the previous panel's open size).
   const [session, setSession] = useState(0);
@@ -105,12 +121,25 @@ const RecordingOverlay: React.FC = () => {
           setLoadNoticeShown(false);
           setSession((s) => s + 1); // remount the card fresh for this session
         }
+        // A new overlay state supersedes any switch notice (a fresh recording
+        // seeds its own choice; transcribing/processing means the choice is
+        // locked).
+        if (postProcessTimeoutRef.current) {
+          clearTimeout(postProcessTimeoutRef.current);
+          postProcessTimeoutRef.current = null;
+        }
+        setPostProcessNotice(null);
         setIsVisible(true);
       });
 
       const unlistenHide = await listen("hide-overlay", () => {
         setIsVisible(false);
         setCaptureReady(false);
+        if (postProcessTimeoutRef.current) {
+          clearTimeout(postProcessTimeoutRef.current);
+          postProcessTimeoutRef.current = null;
+        }
+        setPostProcessNotice(null);
       });
 
       const unlistenReady = await listen("recording-ready", () => {
@@ -167,6 +196,20 @@ const RecordingOverlay: React.FC = () => {
         },
       );
 
+      const unlistenPostProcess = await listen<boolean>(
+        "post-process-toggled",
+        (event) => {
+          if (postProcessTimeoutRef.current) {
+            clearTimeout(postProcessTimeoutRef.current);
+          }
+          setPostProcessNotice(event.payload);
+          postProcessTimeoutRef.current = setTimeout(() => {
+            setPostProcessNotice(null);
+            postProcessTimeoutRef.current = null;
+          }, SWITCH_NOTICE_MS);
+        },
+      );
+
       return () => {
         unlistenShow();
         unlistenHide();
@@ -176,6 +219,10 @@ const RecordingOverlay: React.FC = () => {
         unlistenPhase();
         unlistenModel();
         clearTimeout(modelLoadTimerRef.current);
+        unlistenPostProcess();
+        if (postProcessTimeoutRef.current) {
+          clearTimeout(postProcessTimeoutRef.current);
+        }
       };
     };
 
@@ -299,6 +346,9 @@ const RecordingOverlay: React.FC = () => {
     // when there was no text to preserve.
     const open = hasText || loadingNotice || (loadNoticeShown && !working);
     const collapsed = working && !hasText;
+    // A mid-recording post-processing switch only replays the accent ring
+    // (`spp-flash`): the listening row — waveform included — stays put, so it
+    // keeps reading as "still recording" throughout the switch.
 
     return (
       <div dir={direction} className={`ov-stage ${position}`}>
@@ -306,7 +356,7 @@ const RecordingOverlay: React.FC = () => {
           key={session}
           className={`scard ${open ? "open" : ""} ${collapsed ? "working" : ""} ${
             isVisible ? "" : "leaving"
-          }`}
+          } ${postProcessNotice !== null && !working ? "spp-flash" : ""}`}
         >
           <div className="stext">
             <div className="stext-clip">
@@ -348,6 +398,9 @@ const RecordingOverlay: React.FC = () => {
   // ---- Minimal overlay: exactly one row at a time — waveform (recording), or a
   // spinner + label (transcribing / processing). Never both. The pill animates its
   // width between them; the cancel button is in both rows so it stays put.
+  // A mid-recording post-processing switch only replays the accent ring
+  // (`spp-flash`) on the recording row — no label swap, so the waveform keeps
+  // reading as "still recording".
   const working = state === "transcribing" || state === "processing";
   const workLabel =
     state === "processing" ? t("overlay.processing") : transcribingLabel;
@@ -358,7 +411,9 @@ const RecordingOverlay: React.FC = () => {
       className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
     >
       <div
-        className={`scard compact ${working && isVisible ? "cworking" : ""}`}
+        className={`scard compact ${working && isVisible ? "cworking" : ""} ${
+          postProcessNotice !== null ? "spp-flash" : ""
+        }`}
       >
         {working ? workingRow(workLabel, true) : listeningRow(false, true)}
       </div>
