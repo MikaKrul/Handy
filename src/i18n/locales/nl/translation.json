@@ -310,10 +310,11 @@
       "overlay": {
         "style": {
           "title": "Overlay",
-          "description": "Kies de opname-overlay: 'Geen' verbergt deze, 'Minimaal' toont een compacte balk, 'Live' toont de tekst in realtime tijdens het spreken (alleen voor streaming-modellen). Op Linux wordt 'Geen' aanbevolen.",
+          "description": "Kies de opname-overlay: 'Geen' verbergt deze, 'Minimaal' toont een compacte balk, 'Mini' toont een heel klein pilletje met alleen een golfvorm, 'Live' toont de tekst in realtime tijdens het spreken (alleen voor streaming-modellen). Op Linux wordt 'Geen' aanbevolen.",
           "options": {
             "none": "Geen",
             "minimal": "Minimaal",
+            "mini": "Mini",
             "live": "Live"
           }
         },

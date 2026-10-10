@@ -484,3 +484,127 @@
     box-shadow: 0 0 0 0 transparent;
   }
 }
+
+/* ============================================================
+   Mini overlay — waveform-only pill (Whisperflow-style).
+   As small as it gets: a ~96x30 pill with 5 Handy-pink bars and no
+   dot, timer, label or cancel button. Flat surface + hairline border,
+   same visual language as the other overlays, only smaller.
+   ============================================================ */
+.scard.mini {
+  animation: mini-pop 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  width: 96px;
+  height: 30px;
+  border-radius: 999px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+@keyframes mini-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.mwave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 14px;
+}
+.mwave i {
+  width: 3px;
+  min-height: 3px;
+  max-height: 14px;
+  border-radius: 2px;
+  background: var(--s-accent);
+  transition:
+    height 80ms linear,
+    background-color 180ms ease,
+    opacity 180ms ease;
+}
+/* Arming (no mic samples yet): quiet travelling pulse, same idea as .swave. */
+.mwave.arming i {
+  height: 5px !important;
+  background: var(--s-muted);
+  opacity: 0.35;
+  animation: mwave-arming 900ms ease-in-out infinite;
+}
+.mwave.arming i:nth-child(2),
+.mwave.arming i:nth-child(4) {
+  animation-delay: 150ms;
+}
+.mwave.arming i:nth-child(3) {
+  animation-delay: 300ms;
+}
+@keyframes mwave-arming {
+  0%,
+  100% {
+    transform: scaleY(0.55);
+    opacity: 0.25;
+  }
+  50% {
+    transform: scaleY(1.5);
+    opacity: 0.7;
+  }
+}
+/* Working (transcribing / processing): synthetic wave + breathing pill, so the
+   pill keeps moving after mic levels stop. No spinner, no text. Processing
+   runs the same wave slightly faster with a touch more glow. */
+.mwave.working i {
+  background: var(--s-accent);
+  transform-origin: center;
+  animation: mwave-work 1.15s ease-in-out infinite;
+}
+.mwave.working i:nth-child(2),
+.mwave.working i:nth-child(4) {
+  animation-delay: 140ms;
+}
+.mwave.working i:nth-child(3) {
+  animation-delay: 280ms;
+}
+.mwave.working i:nth-child(1),
+.mwave.working i:nth-child(5) {
+  animation-delay: 420ms;
+}
+@keyframes mwave-work {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scaleY(1.15);
+    opacity: 1;
+  }
+}
+.scard.mini.mworking {
+  animation:
+    mini-pop 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    mini-breathe 2.2s ease-in-out 300ms infinite;
+}
+@keyframes mini-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--s-accent-soft);
+  }
+}
+.scard.mini.mprocessing .mwave.working i {
+  animation-duration: 0.8s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scard.mini,
+  .scard.mini.mworking,
+  .mwave.arming i,
+  .mwave.working i {
+    animation: none;
+  }
+}

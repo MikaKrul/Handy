@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import "./RecordingOverlay.css";
 import { commands, events } from "@/bindings";
 import type {
+  OverlayStyle,
   StreamPhase,
   StreamPhaseEvent,
   StreamTextEvent,
@@ -18,6 +19,10 @@ type OverlayState = "recording" | "streaming" | "transcribing" | "processing";
 // Number of reactive bars in the waveform (the simple, smoothed style shared by
 // every overlay form). Mic levels arrive as 16 FFT buckets; we take the first N.
 const WAVE_BARS = 9;
+
+// Bars in the Mini pill. Fewer bars keep the pill as small as possible while
+// still reading as a live waveform.
+const MINI_WAVE_BARS = 5;
 
 // How long the mid-recording post-processing switch ring stays up. Kept
 // deliberately short: ~700ms confirms the switch while the "still recording"
@@ -74,6 +79,9 @@ const RecordingOverlay: React.FC = () => {
   // Overlay placement (top vs bottom of the screen). The Live panel grows downward
   // from a top overlay (oldest line under the pill) and upward from a bottom one.
   const [position, setPosition] = useState<"top" | "bottom">("bottom");
+  // Which overlay form to render. Read from settings on every show so switching
+  // Minimal/Mini/Live takes effect on the next recording without a reload.
+  const [overlayStyle, setOverlayStyle] = useState<OverlayStyle>("live");
   // True once live text overflows the cap. A top overlay fades its top edge only
   // while overflowing, so the resting first line stays crisp flush under the pill.
   const [overflowing, setOverflowing] = useState(false);
@@ -109,6 +117,7 @@ const RecordingOverlay: React.FC = () => {
             setPosition(
               settings.data.overlay_position === "top" ? "top" : "bottom",
             );
+            setOverlayStyle(settings.data.overlay_style ?? "live");
           }
         } catch {
           // Keep the previous/default placement if settings can't be read.
@@ -331,6 +340,55 @@ const RecordingOverlay: React.FC = () => {
       <div className="sbase-r">{showCancel && cancelBtn}</div>
     </div>
   );
+
+  // ---- Mini overlay: waveform-only pill, nothing else ----
+  // No dot, timer, label or cancel button — just the bars in Handy pink. While
+  // recording the bars follow the mic; while transcribing/processing (or a
+  // streaming finalize) they play a soft synthetic wave so the pill keeps
+  // breathing without any spinner or text. Post-processing uses the same pill
+  // with a slightly faster wave so the mode change reads without new chrome.
+  if (overlayStyle === "mini") {
+    const miniWorking =
+      state === "transcribing" ||
+      state === "processing" ||
+      (state === "streaming" && phase === "working");
+    const miniProcessing =
+      state === "processing" ||
+      (state === "streaming" && phase === "working" && workKind === "polishing");
+    const miniBars = miniWorking
+      ? [6, 10, 14, 10, 6]
+      : levels
+          .slice(0, MINI_WAVE_BARS)
+          .map((v) => Math.max(3, Math.min(14, 3 + Math.pow(v, 0.7) * 11)));
+    const miniLabel =
+      state === "processing" ||
+      (state === "streaming" && phase === "working" && workKind === "polishing")
+        ? t("overlay.processing")
+        : transcribingLabel;
+
+    return (
+      <div
+        dir={direction}
+        className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
+      >
+        <div
+          role="status"
+          aria-label={miniWorking ? miniLabel : undefined}
+          className={`scard mini ${miniWorking ? "mworking" : ""} ${
+            miniProcessing ? "mprocessing" : ""
+          } ${postProcessNotice !== null ? "spp-flash" : ""}`}
+        >
+          <div
+            className={`mwave ${captureReady && !miniWorking ? "ready" : miniWorking ? "working" : "arming"}`}
+          >
+            {miniBars.map((h, i) => (
+              <i key={i} style={{ height: `${h}px` }} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ---- Live overlay: a pill that sculpts open into a panel ----
   if (state === "streaming") {
