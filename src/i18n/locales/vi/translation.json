@@ -737,8 +737,7 @@
     "transcribing": "Đang chuyển đổi...",
     "processing": "Đang xử lý...",
     "switchToPostProcessing": "Hậu xử lý bật",
-    "switchToRawTranscript": "Hậu xử lý tắt",
-    "loadingModel": "Đang tải mô hình..."
+    "switchToRawTranscript": "Hậu xử lý tắt"
   },
   "whatsNew": {
     "title": "Điểm mới trong Handy v{{version}}"

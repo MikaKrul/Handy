@@ -737,8 +737,7 @@
     "transcribing": "Transkribiere...",
     "processing": "Verarbeite...",
     "switchToPostProcessing": "Post-Processing an",
-    "switchToRawTranscript": "Post-Processing aus",
-    "loadingModel": "Modell wird geladen..."
+    "switchToRawTranscript": "Post-Processing aus"
   },
   "whatsNew": {
     "title": "Neu in Handy v{{version}}"

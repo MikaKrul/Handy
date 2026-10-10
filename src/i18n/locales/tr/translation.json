@@ -737,8 +737,7 @@
     "transcribing": "Transkribe ediliyor...",
     "processing": "İşleniyor...",
     "switchToPostProcessing": "Son işleme açık",
-    "switchToRawTranscript": "Son işleme kapalı",
-    "loadingModel": "Model yükleniyor..."
+    "switchToRawTranscript": "Son işleme kapalı"
   },
   "whatsNew": {
     "title": "Handy v{{version}} yenilikleri"

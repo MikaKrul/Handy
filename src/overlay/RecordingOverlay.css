@@ -271,9 +271,6 @@
 .stext-cap .tentative {
   color: inherit;
 }
-.stext-cap .sloading {
-  color: var(--s-muted);
-}
 .scaret {
   display: inline-block;
   width: 2px;

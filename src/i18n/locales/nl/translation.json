@@ -740,8 +740,7 @@
     "transcribing": "Transcriberen...",
     "processing": "Verwerken...",
     "switchToPostProcessing": "Post-processing aan",
-    "switchToRawTranscript": "Post-processing uit",
-    "loadingModel": "Model laden..."
+    "switchToRawTranscript": "Post-processing uit"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} blokkeert mogelijk 1 sneltoets",

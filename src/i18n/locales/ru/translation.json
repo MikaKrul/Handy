@@ -737,8 +737,7 @@
     "transcribing": "Расшифровка...",
     "processing": "Обработка...",
     "switchToPostProcessing": "Постобработка включена",
-    "switchToRawTranscript": "Постобработка выключена",
-    "loadingModel": "Загрузка модели..."
+    "switchToRawTranscript": "Постобработка выключена"
   },
   "whatsNew": {
     "title": "Новое в Handy v{{version}}"

@@ -737,8 +737,7 @@
     "transcribing": "Přepisuji...",
     "processing": "Zpracovávám...",
     "switchToPostProcessing": "Postprocessing zapnut",
-    "switchToRawTranscript": "Postprocessing vypnut",
-    "loadingModel": "Načítání modelu..."
+    "switchToRawTranscript": "Postprocessing vypnut"
   },
   "whatsNew": {
     "title": "Novinky v Handy v{{version}}"

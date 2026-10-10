@@ -96,11 +96,9 @@ pub fn cancel_current_operation(app: &AppHandle) {
     let recording_was_active = audio_manager.is_recording();
     audio_manager.cancel_recording();
 
-    // Abandon any live streaming transcription, and stop a transcription
-    // already in progress
+    // Abandon any live streaming transcription
     let tm = app.state::<Arc<TranscriptionManager>>();
     tm.cancel_stream();
-    tm.cancel_transcription();
 
     // Update tray icon and hide overlay
     set_tray_state(app, crate::tray::TrayIconState::Idle);
@@ -110,9 +108,7 @@ pub fn cancel_current_operation(app: &AppHandle) {
     app.state::<Arc<crate::media_control::MediaController>>()
         .resume_paused_media();
 
-    // Unload model if immediate unload is enabled. Done before notifying the
-    // coordinator, so a recording started next always loads afresh; it
-    // doesn't wait for the cancelled work, so it never blocks this thread.
+    // Unload model if immediate unload is enabled
     tm.maybe_unload_immediately("cancellation");
 
     // Notify coordinator so it can keep lifecycle state coherent.

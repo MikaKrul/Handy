@@ -736,8 +736,7 @@
     "transcribing": "S'està transcrivint...",
     "processing": "S'està processant...",
     "switchToPostProcessing": "Postprocessament activat",
-    "switchToRawTranscript": "Postprocessament desactivat",
-    "loadingModel": "S'està carregant el model..."
+    "switchToRawTranscript": "Postprocessament desactivat"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} pot estar blocant 1 drecera",
