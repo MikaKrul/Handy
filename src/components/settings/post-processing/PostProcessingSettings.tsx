@@ -7,7 +7,7 @@ import {
   TriangleAlert,
   X,
 } from "lucide-react";
-import { commands, type PostProcessTestFailure } from "@/bindings";
+import { commands, type PostProcessApiFormat, type PostProcessTestFailure } from "@/bindings";
 
 import { Alert } from "../../ui/Alert";
 import {
@@ -117,6 +117,40 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
         ) : null
       ) : (
         <>
+          {state.isCustomProvider && (
+            <SettingContainer
+              title={t("settings.postProcessing.api.apiFormat.title")}
+              description={t(
+                "settings.postProcessing.api.apiFormat.description",
+              )}
+              descriptionMode="tooltip"
+              layout="horizontal"
+              grouped={true}
+            >
+              <Dropdown
+                options={[
+                  {
+                    value: "openai",
+                    label: t(
+                      "settings.postProcessing.api.apiFormat.options.openai",
+                    ),
+                  },
+                  {
+                    value: "anthropic",
+                    label: t(
+                      "settings.postProcessing.api.apiFormat.options.anthropic",
+                    ),
+                  },
+                ]}
+                selectedValue={state.apiFormat}
+                onSelect={(value) =>
+                  state.handleApiFormatChange(value as PostProcessApiFormat)
+                }
+                disabled={state.isApiFormatUpdating}
+              />
+            </SettingContainer>
+          )}
+
           {state.selectedProvider?.id === "custom" && (
             <SettingContainer
               title={t("settings.postProcessing.api.baseUrl.title")}
@@ -129,9 +163,13 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
                 <BaseUrlField
                   value={state.baseUrl}
                   onBlur={state.handleBaseUrlChange}
-                  placeholder={t(
-                    "settings.postProcessing.api.baseUrl.placeholder",
-                  )}
+                  placeholder={
+                    state.apiFormat === "anthropic"
+                      ? t(
+                          "settings.postProcessing.api.baseUrl.placeholderAnthropic",
+                        )
+                      : t("settings.postProcessing.api.baseUrl.placeholder")
+                  }
                   disabled={state.isBaseUrlUpdating}
                   className="min-w-[380px]"
                 />

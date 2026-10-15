@@ -115,7 +115,8 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
-          key: ${{ inputs.platform }}-${{ inputs.target }}
+          key: ${{ inputs.platform }}-${{ inputs.target }}-no-bin-v2
+          cache-bin: false
 
       - name: install dependencies (ubuntu 24.04 x64)
         if: contains(inputs.platform, 'ubuntu-24.04') && !contains(inputs.platform, 'arm')
@@ -172,7 +173,7 @@ jobs:
 
       - name: Install trusted-signing-cli
         if: contains(inputs.platform, 'windows') && inputs.sign-binaries && steps.cache-tsc.outputs.cache-hit != 'true'
-        run: cargo install trusted-signing-cli@${{ env.TSC_VERSION }}
+        run: cargo install --locked --force trusted-signing-cli@${{ env.TSC_VERSION }}
 
       - name: Prepare Vulkan SDK for Ubuntu 24.04
         if: contains(inputs.platform, 'ubuntu-24.04') && !contains(inputs.platform, 'arm')
@@ -357,71 +358,6 @@ jobs:
           Write-Host "TAURI_WINDOWS_SIGNTOOL_PATH=$($signtool.FullName)"
           Add-Content -Path $env:GITHUB_ENV -Value "TAURI_WINDOWS_SIGNTOOL_PATH=$($signtool.FullName)"
 
-      - name: Install ONNX Runtime (x86_64 macOS)
-        if: inputs.target == 'x86_64-apple-darwin'
-        shell: bash
-        run: |
-          ORT_VERSION="1.24.2"
-          curl -L -o ort.tgz "https://blob.handy.computer/onnxruntime-osx-x86_64-${ORT_VERSION}.tgz"
-          tar xzf ort.tgz
-          ORT_DIR="$(pwd)/onnxruntime-osx-x86_64-${ORT_VERSION}"
-          echo "ORT_LIB_LOCATION=$ORT_DIR/lib" >> $GITHUB_ENV
-          echo "ORT_PREFER_DYNAMIC_LINK=1" >> $GITHUB_ENV
-          # Bundle the versioned dylib (matches the install name @rpath/libonnxruntime.1.24.2.dylib)
-          jq --arg lib "$ORT_DIR/lib/libonnxruntime.${ORT_VERSION}.dylib" \
-            '.bundle.macOS.frameworks = [$lib]' \
-            src-tauri/tauri.conf.json > tmp.json && mv tmp.json src-tauri/tauri.conf.json
-
-      - name: Install ONNX Runtime (x86_64 Linux, Ubuntu 22.04)
-        if: contains(inputs.platform, 'ubuntu-22.04') && inputs.target == 'x86_64-unknown-linux-gnu'
-        shell: bash
-        run: |
-          ORT_VERSION="1.24.2"
-          curl -L -o ort.tgz "https://blob.handy.computer/onnxruntime-linux-x86_64-${ORT_VERSION}.tgz"
-          tar xzf ort.tgz
-          ORT_DIR="$(pwd)/onnxruntime-linux-x86_64-${ORT_VERSION}"
-          echo "ORT_LIB_LOCATION=$ORT_DIR/lib" >> $GITHUB_ENV
-          echo "ORT_PREFER_DYNAMIC_LINK=1" >> $GITHUB_ENV
-          # Resolve symlinks so the deb bundler gets real files (not broken symlinks)
-          for f in "$ORT_DIR"/lib/libonnxruntime.so*; do
-            if [ -L "$f" ]; then
-              cp -L "$f" "$f.real" && mv "$f.real" "$f"
-            fi
-          done
-          # Add the shared libs to the deb package under /usr/lib
-          # deb.files key = destination in package, value = source on disk
-          jq --arg so "$ORT_DIR/lib/libonnxruntime.so" \
-             --arg so1 "$ORT_DIR/lib/libonnxruntime.so.1" \
-             --arg sov "$ORT_DIR/lib/libonnxruntime.so.1.24.2" \
-            '.bundle.linux.deb.files["/usr/lib/libonnxruntime.so"] = $so | .bundle.linux.deb.files["/usr/lib/libonnxruntime.so.1"] = $so1 | .bundle.linux.deb.files["/usr/lib/libonnxruntime.so.1.24.2"] = $sov' \
-            src-tauri/tauri.conf.json > tmp.json && mv tmp.json src-tauri/tauri.conf.json
-
-      # Windows x64 links a BASELINE ONNX Runtime dynamically instead of statically
-      # embedding pyke's default download-binaries build, which is compiled with a
-      # global /arch:AVX2 baseline and executes BMI2/AVX in a C++ static initializer
-      # — crashing at process startup on any pre-Haswell CPU (Sandy/Ivy Bridge, older
-      # AMD) before main() runs. Microsoft's official build uses an SSE2 baseline with
-      # MLAS runtime CPU dispatch, so it runs everywhere and dispatches to AVX2/AVX-512
-      # kernels when present (perf parity on capable CPUs). build.rs stages
-      # onnxruntime.dll into transcribe-libs/, which tauri.windows.conf.json bundles
-      # beside Handy.exe. ARM64 is excluded (all modern CPUs; keeps its static
-      # ORT posture).
-      # NOTE: sourced from Microsoft's GitHub release; can be re-hosted on
-      # blob.handy.computer to match the macOS/Linux steps.
-      - name: Install ONNX Runtime (Windows x64)
-        if: contains(inputs.platform, 'windows') && !contains(inputs.target, 'aarch64')
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $ORT_VERSION = "1.24.2"
-          $url = "https://github.com/microsoft/onnxruntime/releases/download/v$ORT_VERSION/onnxruntime-win-x64-$ORT_VERSION.zip"
-          Invoke-WebRequest -Uri $url -OutFile ort.zip
-          Expand-Archive -Path ort.zip -DestinationPath ort-dist -Force
-          $ortLib = (Resolve-Path "ort-dist/onnxruntime-win-x64-$ORT_VERSION/lib").Path
-          Write-Host "ORT_LIB_LOCATION=$ortLib"
-          Add-Content -Path $env:GITHUB_ENV -Value "ORT_LIB_LOCATION=$ortLib"
-          Add-Content -Path $env:GITHUB_ENV -Value "ORT_PREFER_DYNAMIC_LINK=1"
-
       # ggml-vulkan (built by transcribe-cpp-sys when the Vulkan backend is on)
       # does `find_package(SPIRV-Headers CONFIG REQUIRED)` for <spirv-headers/
       # spirv.hpp>. ggml's CMake appends $VULKAN_SDK to CMAKE_PREFIX_PATH first,
@@ -450,8 +386,8 @@ jobs:
       # ships them. Pre-build the app so that install dir exists, then expose it
       # via LD_LIBRARY_PATH so the AppImage's linuxdeploy can resolve
       # libtranscribe.so (a NEEDED of `handy`) while bundling. tauri-action
-      # reuses this compile incrementally. TRANSCRIBE_LIBDIR is consumed by the
-      # AppImage post-processing step to co-locate the dlopen'd ggml modules.
+      # reuses this compile incrementally. build.rs stages the runtime and
+      # dlopen'd modules into transcribe-libs/, which tauri.conf.json includes.
       - name: Pre-build and locate transcribe-cpp backend libs (Linux)
         if: contains(inputs.platform, 'ubuntu')
         shell: bash
@@ -477,7 +413,6 @@ jobs:
           LIBDIR="$(cd "$LIBDIR" && pwd)"
           echo "Located transcribe-cpp libs in: $LIBDIR"
           ls -la "$LIBDIR"
-          echo "TRANSCRIBE_LIBDIR=$LIBDIR" >> "$GITHUB_ENV"
           echo "LD_LIBRARY_PATH=$LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
           # linuxdeploy resolves `handy`'s NEEDED libs via `ldd` and HARD-FAILS
           # on an unresolved one (it does not warn-and-skip). libtranscribe.so
@@ -489,6 +424,28 @@ jobs:
           sudo cp -vL "$LIBDIR"/libtranscribe.so* "$LIBDIR"/libggml*.so* /usr/local/lib/ 2>/dev/null || true
           sudo ldconfig
 
+      # Tauri's mirrored 2024 linuxdeploy predates support for the
+      # LINUXDEPLOY_EXCLUDED_LIBRARIES environment variable. Put a current
+      # upstream build in Tauri's tool cache so the exclusions on the build step
+      # are applied while constructing the original, signed AppImage.
+      - name: Install linuxdeploy with library exclusion support
+        if: contains(inputs.platform, 'ubuntu') && contains(inputs.build-args, 'appimage')
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            x86_64) arch="x86_64" ;;
+            aarch64|arm64) arch="aarch64" ;;
+            *) echo "Unsupported linuxdeploy architecture: $(uname -m)" >&2; exit 1 ;;
+          esac
+          tools_dir="${XDG_CACHE_HOME:-$HOME/.cache}/tauri"
+          mkdir -p "$tools_dir"
+          curl -L --fail --show-error --retry 3 \
+            -o "$tools_dir/linuxdeploy-${arch}.AppImage" \
+            "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${arch}.AppImage"
+          chmod +x "$tools_dir/linuxdeploy-${arch}.AppImage"
+          "$tools_dir/linuxdeploy-${arch}.AppImage" --appimage-extract-and-run --version
+
       - name: Build with Tauri
         uses: tauri-apps/tauri-action@v0
         env:
@@ -497,14 +454,24 @@ jobs:
           APPLE_ID_PASSWORD: ${{ inputs.sign-binaries && secrets.APPLE_ID_PASSWORD || '' }}
           APPLE_PASSWORD: ${{ inputs.sign-binaries && secrets.APPLE_PASSWORD || '' }}
           APPLE_TEAM_ID: ${{ inputs.sign-binaries && secrets.APPLE_TEAM_ID || '' }}
-          APPLE_CERTIFICATE: ""
-          APPLE_CERTIFICATE_PASSWORD: ""
-          APPLE_SIGNING_IDENTITY: ""
-          AZURE_CLIENT_ID: ""
-          AZURE_CLIENT_SECRET: ""
-          AZURE_TENANT_ID: ""
-          TAURI_SIGNING_PRIVATE_KEY: ""
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          APPLE_CERTIFICATE: ${{ inputs.sign-binaries && secrets.APPLE_CERTIFICATE || '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ inputs.sign-binaries && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ inputs.sign-binaries && env.CERT_ID || '' }}
+          AZURE_CLIENT_ID: ${{ inputs.sign-binaries && secrets.AZURE_CLIENT_ID || '' }}
+          AZURE_CLIENT_SECRET: ${{ inputs.sign-binaries && secrets.AZURE_CLIENT_SECRET || '' }}
+          AZURE_TENANT_ID: ${{ inputs.sign-binaries && secrets.AZURE_TENANT_ID || '' }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.sign-binaries && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.sign-binaries && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          # The Vulkan loader and Wayland client library must come from the host
+          # graphics stack. Bundling Ubuntu's copies ahead of the system libraries can
+          # prevent a newer distro's Vulkan ICD or Mesa stack from loading.
+          # linuxdeploy reads this semicolon-separated glob list before it creates
+          # (and Tauri signs and uploads) the AppImage, so the published artifact
+          # is already clean.
+          LINUXDEPLOY_EXCLUDED_LIBRARIES: ${{ contains(inputs.platform, 'ubuntu') && 'libvulkan.so*;libwayland-client.so*' || '' }}
+          # linuxdeploy passes this to appimagetool, which writes it as
+          # X-AppImage-Version for desktop integration tools such as Gear Lever.
+          LINUXDEPLOY_OUTPUT_VERSION: ${{ contains(inputs.platform, 'ubuntu') && steps.get-version.outputs.version || '' }}
         with:
           tagName: ${{ inputs.release-id && format('v{0}', steps.get-version.outputs.version) || '' }}
           releaseName: ${{ inputs.release-id && format('v{0}', steps.get-version.outputs.version) || '' }}
@@ -512,26 +479,39 @@ jobs:
           assetNamePattern: ${{ steps.patch-release-name.outputs.platform }}
           args: ${{ inputs.build-args }}
 
-      - name: Verify macOS dylib bundling
-        if: inputs.target == 'x86_64-apple-darwin'
+      # tauri-action uploads release assets before returning. All AppImage
+      # filtering therefore happens inside linuxdeploy above; this verifies the
+      # exact artifact Tauri signed and uploaded.
+      - name: Verify AppImage version metadata
+        if: contains(inputs.platform, 'ubuntu')
         shell: bash
         run: |
-          APP=$(find src-tauri/target -name "*.app" -type d | head -1)
-          echo "=== Frameworks contents ==="
-          ls -la "$APP/Contents/Frameworks/" | grep onnx || true
-          echo "=== Binary linked libs ==="
-          otool -L "$APP/Contents/MacOS/handy" | grep onnx || true
-          echo "=== Checking all @rpath deps are satisfied ==="
-          # Extract every @rpath lib the binary needs
-          otool -L "$APP/Contents/MacOS/handy" | grep '@rpath/' | awk '{print $1}' | while read dep; do
-            libname=$(basename "$dep")
-            if [ ! -f "$APP/Contents/Frameworks/$libname" ]; then
-              echo "MISSING: $libname not found in Frameworks/"
+          set -euo pipefail
+          PROFILE="${{ steps.build-profile.outputs.profile }}"
+          APPIMAGE_PATH="$(find "src-tauri/target/${PROFILE}/bundle/appimage" -name '*.AppImage' -print -quit 2>/dev/null || true)"
+          if [ -z "$APPIMAGE_PATH" ]; then
+            echo "No AppImage produced by this Linux build; skipping metadata verification"
+            exit 0
+          fi
+          APPIMAGE_PATH="$(readlink -f "$APPIMAGE_PATH")"
+          WORKDIR="$(mktemp -d)"
+          trap 'rm -rf "$WORKDIR"' EXIT
+          (
+            cd "$WORKDIR"
+            # AppImage integration tools read the root desktop entry. appimagetool
+            # adds X-AppImage-Version there, not to the source copy under usr/share.
+            "$APPIMAGE_PATH" --appimage-extract '*.desktop' >/dev/null
+            DESKTOP_FILE="$(find squashfs-root -maxdepth 1 -type f -name '*.desktop' -print -quit)"
+            if [ -z "$DESKTOP_FILE" ]; then
+              echo "ERROR: AppImage desktop metadata is missing" >&2
               exit 1
-            else
-              echo "OK: $libname"
             fi
-          done
+            if ! grep -Fqx 'X-AppImage-Version=${{ steps.get-version.outputs.version }}' "$DESKTOP_FILE"; then
+              echo "ERROR: AppImage version metadata is missing or incorrect:" >&2
+              grep -E '^X-AppImage-Version=' "$DESKTOP_FILE" >&2 || true
+              exit 1
+            fi
+          )
 
       - name: Upload artifacts (macOS)
         if: inputs.upload-artifacts && contains(inputs.platform, 'macos')
@@ -542,77 +522,6 @@ jobs:
             src-tauri/target/${{ inputs.target }}/${{ steps.build-profile.outputs.profile }}/bundle/dmg/*.dmg
             src-tauri/target/${{ inputs.target }}/${{ steps.build-profile.outputs.profile }}/bundle/macos/*.app
           retention-days: 30
-
-      - name: Install FUSE for AppImage processing
-        if: contains(inputs.platform, 'ubuntu')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fuse libfuse2
-
-      - name: Remove libwayland-client.so from AppImage
-        if: contains(inputs.platform, 'ubuntu')
-        run: |
-          # Find the AppImage file
-          APPIMAGE_PATH=$(find src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/appimage -name "*.AppImage" | head -1)
-
-          if [ -n "$APPIMAGE_PATH" ]; then
-            echo "Processing AppImage: $APPIMAGE_PATH"
-
-            # Make AppImage executable
-            chmod +x "$APPIMAGE_PATH"
-
-            # Extract AppImage
-            cd "$(dirname "$APPIMAGE_PATH")"
-            APPIMAGE_NAME=$(basename "$APPIMAGE_PATH")
-
-            # Extract using the AppImage itself
-            "./$APPIMAGE_NAME" --appimage-extract
-
-            # Remove libwayland-client.so files
-            echo "Removing libwayland-client.so files..."
-            find squashfs-root -name "libwayland-client.so*" -type f -delete
-
-            # List what was removed for verification
-            echo "Files remaining in lib directories:"
-            find squashfs-root -name "lib*" -type d | head -5 | while read dir; do
-              echo "Contents of $dir:"
-              ls "$dir" | grep -E "(wayland|fuse)" || echo "  No wayland/fuse libraries found"
-            done
-
-            # Co-locate transcribe-cpp's dynamic backends in the AppImage.
-            # linuxdeploy bundles the NEEDED libtranscribe.so (resolved at build
-            # time via LD_LIBRARY_PATH) but NOT the dlopen'd ggml backend modules
-            # that init_backends_default() loads at runtime from libtranscribe's
-            # own directory — stage those (and backfill the core libs) into
-            # usr/lib, next to libtranscribe. Fails loudly if libs are missing.
-            if [ -n "${TRANSCRIBE_LIBDIR:-}" ]; then
-              bash "$GITHUB_WORKSPACE/scripts/ci/stage-transcribe-libs.sh" \
-                "$TRANSCRIBE_LIBDIR" "squashfs-root/usr/lib"
-            else
-              echo "ERROR: TRANSCRIBE_LIBDIR not set; transcribe-cpp backends would be missing from the AppImage" >&2
-              exit 1
-            fi
-
-            # Detect architecture and get appropriate appimagetool
-            if [[ "$(uname -m)" == "aarch64" ]]; then
-              APPIMAGETOOL_ARCH="aarch64"
-            else
-              APPIMAGETOOL_ARCH="x86_64"
-            fi
-
-            wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${APPIMAGETOOL_ARCH}.AppImage"
-            chmod +x "appimagetool-${APPIMAGETOOL_ARCH}.AppImage"
-
-            # Repackage AppImage with no-appstream to avoid warnings
-            ARCH="${APPIMAGETOOL_ARCH}" "./appimagetool-${APPIMAGETOOL_ARCH}.AppImage" --no-appstream squashfs-root "$APPIMAGE_NAME"
-
-            # Clean up
-            rm -rf squashfs-root "appimagetool-${APPIMAGETOOL_ARCH}.AppImage"
-
-            echo "libwayland-client.so removed from AppImage successfully"
-          else
-            echo "No AppImage found to process"
-          fi
 
       - name: Audit Linux package runtime contents
         if: contains(inputs.platform, 'ubuntu')
@@ -656,11 +565,18 @@ jobs:
           smoke_binary() {
             local root="$1"
             local label="$2"
+            local vulkan_icd="${3:-}"
             # Run under a virtual X server: handy initializes GTK on startup even
             # on the headless --list-devices path, which fails without a display.
+            # An AppImage audit supplies Mesa's software ICD so GPU registration
+            # is deterministic even on a runner without physical graphics.
+            if [ -n "$vulkan_icd" ]; then
+              export VK_ICD_FILENAMES="$vulkan_icd"
+            fi
             HANDY_NO_GTK_LAYER_SHELL=1 \
-            LD_LIBRARY_PATH="${root}/usr/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
-              xvfb-run -a "${root}/usr/bin/handy" --list-devices >/tmp/handy-package-smoke.log
+            LD_LIBRARY_PATH="${root}/usr/lib/Handy:${root}/usr/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
+              xvfb-run -a "${root}/usr/bin/handy" --list-devices \
+                >/tmp/handy-package-smoke.log 2>&1
             echo "${label} --list-devices smoke passed"
           }
 
@@ -670,10 +586,15 @@ jobs:
               listing="$(mktemp)"
               dpkg-deb -c "$deb" > "$listing"
               require_pattern "$listing" 'usr/bin/handy$' "handy binary"
-              require_pattern "$listing" 'usr/lib/libtranscribe\.so' "transcribe runtime library"
-              require_pattern "$listing" 'usr/lib/libggml-cpu.*\.so' "ggml CPU backend module"
-              if [[ "${{ inputs.platform }}" == *"ubuntu-22.04"* && "${{ inputs.target }}" == "x86_64-unknown-linux-gnu" ]]; then
-                require_pattern "$listing" 'usr/lib/libonnxruntime\.so' "ONNX Runtime library"
+              require_pattern "$listing" 'usr/lib/Handy/libtranscribe\.so(\.[0-9]+)+$' "transcribe runtime library (SONAME)"
+              require_pattern "$listing" 'usr/lib/Handy/libggml-cpu.*\.so' "ggml CPU backend module"
+              # Handy's libs must stay out of the ldconfig-scanned /usr/lib
+              # (issue #1639): app-private libs belong in /usr/lib/Handy only.
+              # `[^/]+` excludes the Handy/ subdir, so only direct hits match.
+              if grep -Eq 'usr/lib/[^/]+\.so' "$listing"; then
+                echo "ERROR: libraries installed directly into /usr/lib (issue #1639):" >&2
+                grep -E 'usr/lib/[^/]+\.so' "$listing" >&2
+                exit 1
               fi
               root="$(mktemp -d)"
               dpkg-deb -x "$deb" "$root"
@@ -692,8 +613,14 @@ jobs:
               listing="$(mktemp)"
               rpm -qpl "$rpm_pkg" > "$listing"
               require_pattern "$listing" '/usr/bin/handy$' "handy binary"
-              require_pattern "$listing" '/usr/lib/libtranscribe\.so' "transcribe runtime library"
-              require_pattern "$listing" '/usr/lib/libggml-cpu.*\.so' "ggml CPU backend module"
+              require_pattern "$listing" '/usr/lib/Handy/libtranscribe\.so(\.[0-9]+)+$' "transcribe runtime library (SONAME)"
+              require_pattern "$listing" '/usr/lib/Handy/libggml-cpu.*\.so' "ggml CPU backend module"
+              # Same /usr/lib pollution guard as the deb audit (issue #1639).
+              if grep -Eq 'usr/lib/[^/]+\.so' "$listing"; then
+                echo "ERROR: libraries installed directly into /usr/lib (issue #1639):" >&2
+                grep -E 'usr/lib/[^/]+\.so' "$listing" >&2
+                exit 1
+              fi
               rm -f "$listing"
             done
           fi
@@ -708,13 +635,56 @@ jobs:
                 cd "$workdir"
                 ./Handy.AppImage --appimage-extract >/dev/null
                 require_path "squashfs-root/usr/bin/handy" "AppImage handy binary"
-                require_path "squashfs-root/usr/lib/libtranscribe.so" "AppImage transcribe runtime library"
+                # Gear Lever and other integration tools consume the root entry;
+                # appimagetool does not update the copy under usr/share/applications.
+                desktop_file="$(find squashfs-root -maxdepth 1 -type f -name '*.desktop' -print -quit)"
+                require_path "$desktop_file" "AppImage desktop metadata"
+                if ! grep -Fqx 'X-AppImage-Version=${{ steps.get-version.outputs.version }}' "$desktop_file"; then
+                  echo "ERROR: AppImage version metadata is missing or incorrect:" >&2
+                  grep -E '^X-AppImage-Version=' "$desktop_file" >&2 || true
+                  exit 1
+                fi
+                # The SONAME (libtranscribe.so.N) is the name the loader
+                # resolves; the bare .so alias may or may not be present.
+                if ! find "squashfs-root/usr/lib" -name 'libtranscribe.so*' | grep -q .; then
+                  echo "ERROR: missing AppImage transcribe runtime library" >&2
+                  find "squashfs-root/usr/lib" -maxdepth 1 -type f >&2
+                  exit 1
+                fi
                 if ! find "squashfs-root/usr/lib" -name 'libggml-cpu*.so*' | grep -q .; then
                   echo "ERROR: missing AppImage ggml CPU backend module" >&2
                   find "squashfs-root/usr/lib" -maxdepth 1 -type f >&2
                   exit 1
                 fi
-                smoke_binary "$(pwd)/squashfs-root" "AppImage"
+                require_path "squashfs-root/usr/lib/libggml-vulkan.so" "AppImage ggml Vulkan backend module"
+
+                # These libraries mediate access to the host graphics stack.
+                # Shipping build-host copies ahead of the system versions can
+                # break Vulkan ICD or Mesa loading on newer distributions.
+                for pattern in \
+                  'libvulkan.so*' \
+                  'libwayland-client.so*'; do
+                  forbidden="$(find squashfs-root/usr -name "$pattern" -print -quit)"
+                  if [ -n "$forbidden" ]; then
+                    echo "ERROR: AppImage bundles host graphics loader: $forbidden" >&2
+                    exit 1
+                  fi
+                done
+
+                vulkan_icd="$(find /usr/share/vulkan/icd.d -type f -name 'lvp_icd*.json' -print -quit)"
+                if [ -z "$vulkan_icd" ]; then
+                  echo "ERROR: Mesa software Vulkan ICD is unavailable for the AppImage audit" >&2
+                  exit 1
+                fi
+                smoke_binary "$(pwd)/squashfs-root" "AppImage" "$vulkan_icd"
+                # llvmpipe is intentionally not exposed as a compute device by
+                # ggml, but reaching this log proves the module loaded against a
+                # usable system Vulkan loader/ICD instead of failing silently.
+                if ! grep -q 'load_backend: loaded Vulkan backend' /tmp/handy-package-smoke.log; then
+                  echo "ERROR: AppImage could not initialize its Vulkan backend with a usable system ICD" >&2
+                  cat /tmp/handy-package-smoke.log >&2
+                  exit 1
+                fi
               )
               rm -rf "$workdir"
             done
@@ -751,10 +721,10 @@ jobs:
             throw "src-tauri/transcribe-libs contains no DLLs; every Windows build must stage the app-local VC++ runtime (issue #1527)"
           }
 
-          # x64 also ships dynamic transcribe/ggml/ORT DLLs; ARM64 is otherwise static.
+          # x64 also ships dynamic transcribe/ggml DLLs; ARM64 is otherwise static.
           $requiredStaged = @("msvcp140.dll", "vcruntime140.dll")
           if ("${{ inputs.target }}" -notlike "aarch64*") {
-            $requiredStaged += @("vcomp140.dll", "onnxruntime.dll")
+            $requiredStaged += @("vcomp140.dll")
             if (-not ($stagedDlls | Where-Object { $_.Name -like "*transcribe*" })) {
               throw "Staging is missing transcribe runtime DLLs"
             }
@@ -782,9 +752,16 @@ jobs:
               }
             }
 
-            & $handy.FullName --list-devices | Out-Host
+            $deviceOutput = (& $handy.FullName --list-devices | Out-String)
+            $deviceOutput | Write-Host
             if ($LASTEXITCODE -ne 0) {
               throw "$Label handy.exe --list-devices failed"
+            }
+            if ("${{ inputs.target }}" -like "aarch64*" -and $deviceOutput -match "kind=(vulkan|cuda|metal|gpu)") {
+              throw "$Label Windows ARM64 package unexpectedly exposed a GPU compute device"
+            }
+            if ("${{ inputs.target }}" -like "aarch64*" -and $deviceOutput -notmatch "kind=cpu") {
+              throw "$Label Windows ARM64 package did not expose its required CPU compute device"
             }
           }
 
@@ -836,4 +813,3 @@ jobs:
             src-tauri/target/${{ inputs.target != '' && inputs.target != 'x86_64-pc-windows-msvc' && format('{0}/{1}', inputs.target, steps.build-profile.outputs.profile) || steps.build-profile.outputs.profile }}/bundle/msi/*.msi
             src-tauri/target/${{ inputs.target != '' && inputs.target != 'x86_64-pc-windows-msvc' && format('{0}/{1}', inputs.target, steps.build-profile.outputs.profile) || steps.build-profile.outputs.profile }}/bundle/nsis/*.exe
           retention-days: 30
-
