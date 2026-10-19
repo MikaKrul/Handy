@@ -451,6 +451,8 @@ pub struct AppSettings {
     pub history_limit: usize,
     #[serde(default = "default_recording_retention_period")]
     pub recording_retention_period: RecordingRetentionPeriod,
+    #[serde(default = "default_keep_cancelled_recordings")]
+    pub keep_cancelled_recordings: bool,
     #[serde(default)]
     pub paste_method: PasteMethod,
     #[serde(default)]
@@ -627,6 +629,10 @@ fn default_long_form_chunking() -> bool {
 }
 
 fn default_filler_word_removal_enabled() -> bool {
+    true
+}
+
+fn default_keep_cancelled_recordings() -> bool {
     true
 }
 
@@ -1040,6 +1046,7 @@ pub fn get_default_settings() -> AppSettings {
         word_correction_threshold: default_word_correction_threshold(),
         history_limit: default_history_limit(),
         recording_retention_period: default_recording_retention_period(),
+        keep_cancelled_recordings: default_keep_cancelled_recordings(),
         paste_method: PasteMethod::default(),
         clipboard_handling: ClipboardHandling::default(),
         auto_submit: default_auto_submit(),

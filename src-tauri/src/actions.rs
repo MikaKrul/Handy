@@ -766,6 +766,7 @@ impl ShortcutAction for TranscribeAction {
 
         let binding_id = binding_id.to_string(); // Clone binding_id for the async task
         let cancel_generation = rm.cancel_generation();
+        let keep_cancelled_recordings = get_settings(app).keep_cancelled_recordings;
 
         tauri::async_runtime::spawn(async move {
             let _guard = FinishGuard(ah.clone(), Arc::clone(&tm));
@@ -782,7 +783,7 @@ impl ShortcutAction for TranscribeAction {
                     samples.len()
                 );
 
-                if rm.was_cancelled_since(cancel_generation) {
+                if rm.was_cancelled_since(cancel_generation) && !keep_cancelled_recordings {
                     debug!("Transcription operation cancelled after recording stop");
                     tm.cancel_stream();
                     utils::hide_recording_overlay(&ah);
@@ -841,6 +842,17 @@ impl ShortcutAction for TranscribeAction {
 
                     if rm.was_cancelled_since(cancel_generation) {
                         debug!("Transcription operation cancelled before output handling");
+                        if keep_cancelled_recordings && wav_saved {
+                            if let Err(err) = hm.save_entry(
+                                file_name,
+                                transcription_result.as_ref().cloned().unwrap_or_default(),
+                                post_process,
+                                None,
+                                None,
+                            ) {
+                                error!("Failed to save cancelled history entry: {}", err);
+                            }
+                        }
                         utils::hide_recording_overlay(&ah);
                         set_tray_state(&ah, TrayIconState::Idle);
                         return;
@@ -871,20 +883,25 @@ impl ShortcutAction for TranscribeAction {
                             .await
                             else {
                                 debug!("Transcription operation cancelled during output handling");
+                                if keep_cancelled_recordings && wav_saved {
+                                    if let Err(err) = hm.save_entry(
+                                        file_name,
+                                        transcription,
+                                        post_process,
+                                        None,
+                                        None,
+                                    ) {
+                                        error!("Failed to save cancelled history entry: {}", err);
+                                    }
+                                }
                                 utils::hide_recording_overlay(&ah);
                                 set_tray_state(&ah, TrayIconState::Idle);
                                 return;
                             };
 
-                            if rm.was_cancelled_since(cancel_generation) {
-                                debug!("Transcription operation cancelled before paste");
-                                utils::hide_recording_overlay(&ah);
-                                set_tray_state(&ah, TrayIconState::Idle);
-                                return;
-                            }
-
                             // Save to history if WAV was saved
-                            if wav_saved {
+                            let cancelled = rm.was_cancelled_since(cancel_generation);
+                            if wav_saved && (keep_cancelled_recordings || !cancelled) {
                                 if let Err(err) = hm.save_entry(
                                     file_name,
                                     transcription,
@@ -894,6 +911,13 @@ impl ShortcutAction for TranscribeAction {
                                 ) {
                                     error!("Failed to save history entry: {}", err);
                                 }
+                            }
+
+                            if cancelled {
+                                debug!("Transcription operation cancelled before paste");
+                                utils::hide_recording_overlay(&ah);
+                                set_tray_state(&ah, TrayIconState::Idle);
+                                return;
                             }
 
                             if processed.final_text.is_empty() {
@@ -933,7 +957,9 @@ impl ShortcutAction for TranscribeAction {
                             }
                         }
                         Err(err) => {
-                            if rm.was_cancelled_since(cancel_generation) {
+                            if rm.was_cancelled_since(cancel_generation)
+                                && !keep_cancelled_recordings
+                            {
                                 debug!(
                                     "Transcription operation cancelled after transcription error"
                                 );
@@ -977,6 +1003,47 @@ impl ShortcutAction for TranscribeAction {
             stop_time.elapsed()
         );
     }
+}
+
+/// Write the history entry before transcribing so a failed transcription still leaves it in history, ready to retry. Nothing is pasted.
+pub fn keep_cancelled_recording(app: &AppHandle, samples: Vec<f32>) {
+    let tm = Arc::clone(&app.state::<Arc<TranscriptionManager>>());
+    let hm = Arc::clone(&app.state::<Arc<HistoryManager>>());
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let file_name = format!("handy-{}.wav", chrono::Utc::now().timestamp());
+        let wav_path = hm.recordings_dir().join(&file_name);
+        if let Err(e) = crate::audio_toolkit::save_wav_file(&wav_path, &samples) {
+            error!("Failed to save cancelled recording: {}", e);
+            return;
+        }
+
+        let entry = match hm.save_entry(file_name, String::new(), false, None, None) {
+            Ok(entry) => entry,
+            Err(e) => {
+                error!("Failed to save cancelled recording to history: {}", e);
+                return;
+            }
+        };
+        log::info!(
+            "Cancelled recording kept in history as entry {} ({} samples)",
+            entry.id,
+            samples.len()
+        );
+
+        // The live stream already received every sample before the cancel. Its text is used when it has any.
+        let transcription = tm.transcribe_recording(samples);
+
+        match transcription {
+            Ok(text) if !text.is_empty() => {
+                if let Err(e) = hm.update_transcription(entry.id, text, None, None) {
+                    error!("Failed to update cancelled history entry: {}", e);
+                }
+            }
+            Ok(_) => debug!("Cancelled recording contains no speech"),
+            Err(e) => error!("Transcription of cancelled recording failed: {}", e),
+        }
+    });
 }
 
 // Cancel Action
