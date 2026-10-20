@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
   CheckCircle2,
+  Loader2,
   RefreshCcw,
   RotateCcw,
   TriangleAlert,
@@ -191,12 +192,21 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
                 onSelect={state.handleModelSelect}
                 onCreate={state.handleModelCreate}
                 onBlur={() => {}}
-                onTest={handleTestModel}
-                testingModel={testingModel}
-                testLabel={t("settings.postProcessing.api.model.test")}
-                testingLabel={t("settings.postProcessing.api.model.testing")}
                 className="min-w-0 flex-1"
               />
+              {state.model && (
+                <button
+                  type="button"
+                  onClick={() => handleTestModel()}
+                  disabled={Boolean(testingModel)}
+                  className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full bg-logo-primary px-3 py-1 text-xs font-medium transition-colors hover:bg-logo-primary/80 focus:outline-none focus:ring-1 focus:ring-logo-primary disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {testingModel && <Loader2 className="h-3 w-3 animate-spin" />}
+                  {testingModel
+                    ? t("settings.postProcessing.api.model.testing")
+                    : t("settings.postProcessing.api.model.test")}
+                </button>
+              )}
               <ResetButton
                 onClick={state.handleRefreshModels}
                 disabled={state.isFetchingModels}
@@ -211,21 +221,21 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
 
             {testResult && (
               <div
-                className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 ${
+                className={`flex items-start gap-3 rounded-lg p-4 ${
                   testResult.kind === "error"
-                    ? "border-error/40 bg-error/10"
-                    : "border-success/40 bg-success/10"
+                    ? "bg-red-500/10"
+                    : "bg-green-500/10"
                 }`}
               >
                 {testResult.kind === "error" ? (
-                  <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-error" />
+                  <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
                 ) : (
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
                 )}
                 <div className="min-w-0 flex-1 space-y-1">
                   {testResult.kind === "error" ? (
                     <>
-                      <p className="text-sm font-medium leading-5 text-error">
+                      <p className="text-sm text-red-400">
                         {t(
                           `settings.postProcessing.api.model.errors.${
                             TEST_ERROR_KEYS[testResult.failure.kind] ??
@@ -233,22 +243,15 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
                           }`,
                         )}
                       </p>
-                      <p className="break-words text-xs leading-4 text-error/80">
+                      <p className="break-words text-xs text-red-400/80">
                         {testResult.failure.detail}
                       </p>
-                    </>
-                  ) : (
-                    <p className="text-sm leading-5 text-success">
-                      {t("settings.postProcessing.api.model.testSuccess")}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-1 pt-1">
-                    {testResult.kind === "error" && (
-                      <button
-                        type="button"
+                      <Button
                         onClick={() => handleTestModel(testResult.model)}
                         disabled={Boolean(testingModel)}
-                        className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded px-2 py-1 text-xs font-medium text-error transition-colors hover:bg-error/15 focus:outline-none focus:ring-1 focus:ring-error disabled:cursor-not-allowed disabled:opacity-50"
+                        variant="danger-ghost"
+                        size="sm"
+                        className="mt-1 inline-flex items-center gap-1.5"
                       >
                         <RotateCcw
                           className={`h-3.5 w-3.5 ${
@@ -258,24 +261,23 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
                           }`}
                         />
                         {t("settings.postProcessing.api.model.retry")}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setTestResult(null)}
-                      aria-label={t(
-                        "settings.postProcessing.api.model.dismiss",
-                      )}
-                      className={`cursor-pointer rounded p-1 transition-colors focus:outline-none focus:ring-1 ${
-                        testResult.kind === "error"
-                          ? "text-error hover:bg-error/15 focus:ring-error"
-                          : "text-success hover:bg-success/15 focus:ring-success"
-                      }`}
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
+                      </Button>
+                    </>
+                  ) : (
+                    <p className="text-sm text-green-400">
+                      {t("settings.postProcessing.api.model.testSuccess")}
+                    </p>
+                  )}
                 </div>
+                <Button
+                  onClick={() => setTestResult(null)}
+                  aria-label={t("settings.postProcessing.api.model.dismiss")}
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 px-1.5"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
             )}
           </div>
