@@ -20,12 +20,54 @@ use crate::utils::{
 use crate::TranscriptionCoordinator;
 use log::{debug, error, warn};
 use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::Manager;
 use tauri::{AppHandle, Emitter};
+use tauri_specta::Event;
+
+/// How a dictation ended.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "lowercase")]
+pub enum TranscriptionOutcome {
+    /// The text was typed.
+    Typed,
+    /// Nothing was heard, so nothing was typed.
+    Empty,
+    /// Transcribing or pasting failed.
+    Failed,
+}
+
+/// A dictation that finished: how it ended, how long the person spoke, and
+/// how long after they stopped it ended (onboarding's Try it measures speed
+/// with it). A cancelled one sends a cancelled recording phase instead.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct TranscriptionCompleteEvent {
+    pub outcome: TranscriptionOutcome,
+    pub audio_seconds: f64,
+    pub wait_seconds: f64,
+}
+
+fn emit_transcription_complete(
+    app: &AppHandle,
+    outcome: TranscriptionOutcome,
+    sample_count: usize,
+    stop_time: Instant,
+) {
+    let event = TranscriptionCompleteEvent {
+        outcome,
+        audio_seconds: sample_count as f64
+            / crate::audio_toolkit::constants::WHISPER_SAMPLE_RATE as f64,
+        wait_seconds: stop_time.elapsed().as_secs_f64(),
+    };
+    if let Err(e) = event.emit(app) {
+        warn!("Failed to emit transcription complete: {e}");
+    }
+}
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
 const EMPTY_CUSTOM_WORDS: &str = "(none provided)";
@@ -798,6 +840,7 @@ impl ShortcutAction for TranscribeAction {
                     tm.cancel_stream();
                     utils::hide_recording_overlay(&ah);
                     set_tray_state(&ah, TrayIconState::Idle);
+                    emit_transcription_complete(&ah, TranscriptionOutcome::Empty, 0, stop_time);
                 } else {
                     // Save WAV concurrently with transcription
                     let sample_count = samples.len();
@@ -923,6 +966,12 @@ impl ShortcutAction for TranscribeAction {
                             if processed.final_text.is_empty() {
                                 utils::hide_recording_overlay(&ah);
                                 set_tray_state(&ah, TrayIconState::Idle);
+                                emit_transcription_complete(
+                                    &ah,
+                                    TranscriptionOutcome::Empty,
+                                    sample_count,
+                                    stop_time,
+                                );
                             } else {
                                 let ah_clone = ah.clone();
                                 let paste_time = Instant::now();
@@ -936,23 +985,47 @@ impl ShortcutAction for TranscribeAction {
                                         return;
                                     }
 
-                                    match utils::paste(final_text, ah_clone.clone()) {
-                                        Ok(()) => debug!(
-                                            "Text pasted successfully in {:?}",
-                                            paste_time.elapsed()
-                                        ),
+                                    let pasted = if crate::commands::insert_into_practice_note(
+                                        &ah_clone,
+                                        &final_text,
+                                    ) {
+                                        Ok(())
+                                    } else {
+                                        utils::paste(final_text, ah_clone.clone())
+                                    };
+                                    let outcome = match pasted {
+                                        Ok(()) => {
+                                            debug!(
+                                                "Text pasted successfully in {:?}",
+                                                paste_time.elapsed()
+                                            );
+                                            TranscriptionOutcome::Typed
+                                        }
                                         Err(e) => {
                                             error!("Failed to paste transcription: {}", e);
                                             let _ = ah_clone.emit("paste-error", ());
+                                            TranscriptionOutcome::Failed
                                         }
-                                    }
+                                    };
                                     utils::hide_recording_overlay(&ah_clone);
                                     set_tray_state(&ah_clone, TrayIconState::Idle);
+                                    emit_transcription_complete(
+                                        &ah_clone,
+                                        outcome,
+                                        sample_count,
+                                        stop_time,
+                                    );
                                 })
                                 .unwrap_or_else(|e| {
                                     error!("Failed to run paste on main thread: {:?}", e);
                                     utils::hide_recording_overlay(&ah);
                                     set_tray_state(&ah, TrayIconState::Idle);
+                                    emit_transcription_complete(
+                                        &ah,
+                                        TranscriptionOutcome::Failed,
+                                        sample_count,
+                                        stop_time,
+                                    );
                                 });
                             }
                         }
@@ -986,6 +1059,12 @@ impl ShortcutAction for TranscribeAction {
                             }
                             utils::hide_recording_overlay(&ah);
                             set_tray_state(&ah, TrayIconState::Idle);
+                            emit_transcription_complete(
+                                &ah,
+                                TranscriptionOutcome::Failed,
+                                sample_count,
+                                stop_time,
+                            );
                         }
                     }
                 }
@@ -995,6 +1074,9 @@ impl ShortcutAction for TranscribeAction {
                 tm.cancel_stream();
                 utils::hide_recording_overlay(&ah);
                 set_tray_state(&ah, TrayIconState::Idle);
+                if !rm.was_cancelled_since(cancel_generation) {
+                    emit_transcription_complete(&ah, TranscriptionOutcome::Empty, 0, stop_time);
+                }
             }
         });
 

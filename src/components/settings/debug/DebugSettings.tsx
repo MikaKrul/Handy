@@ -16,15 +16,18 @@ import { WhatsNewPreview } from "./WhatsNewPreview";
 import { KeyboardDiagnostic } from "./KeyboardDiagnostic";
 import {
   OnboardingPreview,
+  OnboardingRun,
   type OnboardingPreviewStep,
 } from "./OnboardingPreview";
 
 interface DebugSettingsProps {
   onPreviewOnboarding?: (step: OnboardingPreviewStep) => void;
+  onRunOnboarding?: () => void;
 }
 
 export const DebugSettings: React.FC<DebugSettingsProps> = ({
   onPreviewOnboarding,
+  onRunOnboarding,
 }) => {
   const { t } = useTranslation();
 
@@ -36,6 +39,13 @@ export const DebugSettings: React.FC<DebugSettingsProps> = ({
         {onPreviewOnboarding && (
           <OnboardingPreview
             onPreview={onPreviewOnboarding}
+            descriptionMode="tooltip"
+            grouped={true}
+          />
+        )}
+        {onRunOnboarding && (
+          <OnboardingRun
+            onRun={onRunOnboarding}
             descriptionMode="tooltip"
             grouped={true}
           />
