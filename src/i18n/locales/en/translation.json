@@ -65,14 +65,11 @@
     "permissions": {
       "microphone": {
         "name": "Microphone",
-        "why": "So Handy can hear you. Audio is turned into text on this computer and never uploaded.",
-        "waitingMac": "Waiting for your answer",
-        "waitingWindows": "Waiting for Windows"
+        "why": "So Handy can hear you. Audio is turned into text on this computer and never uploaded."
       },
       "accessibility": {
         "name": "Accessibility",
-        "why": "So your shortcut works in every app, and Handy can type the text where your cursor is.",
-        "waiting": "Turn on Handy in System Settings"
+        "why": "So your shortcut works in every app, and Handy can type the text where your cursor is."
       },
       "errors": {
         "checkFailed": "Failed to check permissions. Please try again.",
@@ -85,6 +82,9 @@
       "allow": "Allow",
       "openSettings": "Open settings",
       "allowed": "Allowed",
+      "waiting": "Waiting",
+      "turnOnMac": "Turn on Handy in System Settings, then come back here.",
+      "turnOnWindows": "Turn on microphone access in Windows Settings, then come back here.",
       "hintBoth": "Allow both to continue",
       "hintMicrophone": "Allow the microphone to continue",
       "welcomeBack": "Welcome back. Picking up where you left off.",
@@ -106,8 +106,8 @@
       "alreadyAdded_one": "{{languages}} is already added.",
       "alreadyAdded_other": "{{languages}} are already added.",
       "noMatch": "No language matches “{{query}}”. Handy's models cover about 100 languages; more are in settings.",
-      "menusIn": "Menus in",
-      "menusLabel": "Language for Handy's menus",
+      "appLanguage": "App language",
+      "menusIn": "Menus in <b>{{language}}</b>",
       "chinese": {
         "question": "You speak {{languages}}. Which characters should Handy write?",
         "label": "Chinese characters",
@@ -118,10 +118,7 @@
       "hint": {
         "pickOne": "Pick at least one language",
         "weak_one": "{{languages}}: no model hears it well yet",
-        "weak_other": "{{languages}}: no model hears these well yet",
-        "fromMac": "From your Mac's settings",
-        "fromPc": "From your PC's settings",
-        "fromComputer": "From your computer's settings"
+        "weak_other": "{{languages}}: no model hears these well yet"
       }
     },
     "download": {
@@ -132,7 +129,6 @@
       "minutes_other": "{{count}} min",
       "checking": "Checking the download…",
       "ready": "{{name}} is ready",
-      "onDisk": "{{name}} is on this computer",
       "failed": "Download stopped",
       "retry": "Retry"
     },
@@ -162,28 +158,20 @@
       "size": "Size",
       "model": "Model",
       "speedWords": {
-        "0": "Very slow",
-        "1": "Slow",
-        "2": "A short wait",
-        "3": "Fast",
-        "4": "Very fast"
+        "0": "Very slow, words appear after a long wait",
+        "1": "Slow, words appear after a wait",
+        "2": "Moderate, words appear after a short wait",
+        "3": "Fast, words appear almost right away",
+        "4": "Very fast, words appear right away"
       },
-      "speedLine": "{{speed}}, about {{wait}} after you stop",
       "speedUntested": "Speed not measured yet",
       "seconds": "{{value}}s",
       "showAll": "Show all {{count}} models",
       "download": "Download {{size}}",
       "hint": "Downloads while you finish setup",
-      "recommendations": "Recommendations",
       "searchPlaceholder": "Search models or languages",
       "searchLabel": "Search models",
-      "otherMatches": "Other matches",
-      "otherFor": "Other models for {{languages}}",
-      "otherForYours": "Other models for your languages",
-      "foldMissingOne_one": "{{count}} model doesn't speak {{language}}",
-      "foldMissingOne_other": "{{count}} models don't speak {{language}}",
-      "foldMissingSome_one": "{{count}} model misses some of your languages",
-      "foldMissingSome_other": "{{count}} models miss some of your languages",
+      "missingLanguages": "These models are missing some of your languages",
       "noMatch": "Nothing matches “{{query}}”. Try a language, or a family like Whisper or Parakeet."
     },
     "demo": {
@@ -205,7 +193,6 @@
       "change": "Change shortcut",
       "pressKeys": "Press the keys you want",
       "cancel": "Cancel",
-      "useDefault": "Use {{shortcut}}",
       "tryIt": "Try it yourself",
       "hint": "You can try it once the download finishes",
       "hintFailed": "Retry the download to try it yourself"
@@ -226,7 +213,6 @@
       "nothingTyped": "<b>Nothing was typed.</b> The cursor wasn't in a text box. Click into the note, then try again.",
       "empty": "Handy didn't hear anything. Check your microphone, then try again.",
       "failed": "That one didn't come through. Try again.",
-      "noteClosed": "The note was closed. <link>Open it again</link>",
       "short": "It appeared {{wait}} after you stopped. Talk for 5 seconds or more and Handy checks its speed.",
       "ok_one": "You spoke for {{count}} second. It appeared {{wait}} after you stopped.",
       "ok_other": "You spoke for {{count}} seconds. It appeared {{wait}} after you stopped.",
@@ -238,7 +224,7 @@
       "switchedReady": "{{name}} is ready. Tap and talk for 5 seconds or more to check its speed.",
       "finish": "Finish setup",
       "skip": "Skip for now",
-      "noteTitle": "Untitled",
+      "noteTitle": "Handy Practice Note",
       "noteLabel": "Practice note",
       "notePlaceholder": "Click here, then talk"
     },

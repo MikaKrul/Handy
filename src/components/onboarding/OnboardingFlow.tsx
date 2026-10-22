@@ -2,7 +2,6 @@ import React, { useEffect, useLayoutEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { commands } from "@/bindings";
 import { useSettings } from "@/hooks/useSettings";
-import { recognitionLanguage } from "@/lib/constants/languages";
 import {
   STEP_ORDER,
   clearOnboardingProgress,
@@ -84,7 +83,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       onDisk.find((m) => models.picks.some((p) => p.model.id === m.id)) ??
       onDisk[0];
     if (chosen?.id && models.infoFor(chosen)?.is_downloaded)
-      store.set({ downloadId: chosen.id, downloadOnDisk: true });
+      store.set({ downloadId: chosen.id });
     // Decided once the model list is in.
   }, [models.offered.length]);
 
@@ -183,14 +182,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     store.set({
       modelId: id,
       downloadId: id,
-      downloadOnDisk:
-        store.downloadId === id ? store.downloadOnDisk : !!info?.is_downloaded,
     });
   };
   const downloadNow = preview
-    ? ({ state: "ready", onDisk: false } as const)
+    ? ({ state: "ready" } as const)
     : models.downloadState(downloaded);
   const modelReady = downloadNow.state === "ready";
+  // From Model on. On a first visit to Model there's nothing to report yet;
+  // coming back to it mid-download, the pill shows how far it's got.
   const pill =
     steps.indexOf(step) >= steps.indexOf("model") ? (
       <OnboardingPill models={models} />
@@ -202,7 +201,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     updateSetting("spoken_languages", languages);
     updateSetting(
       "selected_language",
-      languages.length === 1 ? recognitionLanguage(languages[0]) : "auto",
+      languages.length === 1 ? languages[0] : "auto",
     );
     if (languages.some(isChinese))
       updateSetting("chinese_script", SCRIPT_SETTING[script]);
@@ -213,7 +212,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       return (
         <Welcome
           progress={progress}
-          platform={permissions.platform}
           preview={preview}
           onContinue={() => {
             saveLanguages();

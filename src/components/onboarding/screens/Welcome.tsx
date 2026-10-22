@@ -1,23 +1,22 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
+import { ChevronDown, Globe } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { Radio } from "../../ui/Radio";
 import { Mascot } from "../../shared/Mascot";
 import HandyTextLogo from "../../icons/HandyTextLogo";
 import { OnboardingShell, ScreenSub, ScreenTitle } from "../OnboardingShell";
 import { useOnboardingStore } from "../onboardingStore";
-import {
-  CHINESE_SCRIPTS,
-  isChinese,
-  languageName,
-  searchLanguages,
-  spokenLanguage,
-} from "../data/languages";
+import { CHINESE_SCRIPTS, isChinese } from "../data/languages";
 import { CURATED_ASR, isWeakLanguage } from "../data/models";
 import { modelMatchesLanguage } from "@handy-computer/models";
 import { SUPPORTED_LANGUAGES, getSupportedLanguage } from "@/i18n";
+import {
+  getLanguage,
+  languageName,
+  searchLanguages,
+} from "@/lib/constants/languages";
 import { useSettings } from "@/hooks/useSettings";
-import type { PermissionPlatform } from "../usePermissions";
 
 // The mascot waves on the first visit only.
 let waved = false;
@@ -39,7 +38,6 @@ const RemoveIcon = () => (
 
 interface WelcomeProps {
   progress: { index: number; count: number };
-  platform: PermissionPlatform;
   /** Changing the menu language writes the setting (not in a preview). */
   preview: boolean;
   onContinue: () => void;
@@ -51,14 +49,12 @@ interface WelcomeProps {
  */
 export const Welcome: React.FC<WelcomeProps> = ({
   progress,
-  platform,
   preview,
   onContinue,
 }) => {
   const { t, i18n } = useTranslation();
   const { updateSetting } = useSettings();
-  const { languages, languagesFromOS, script, modelId, set } =
-    useOnboardingStore();
+  const { languages, script, modelId, set } = useOnboardingStore();
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const [wave] = useState(() => !waved);
@@ -85,7 +81,6 @@ export const Welcome: React.FC<WelcomeProps> = ({
     const stillFits =
       !picked || next.every((l) => modelMatchesLanguage(picked, l));
     set({
-      languagesFromOS: false,
       languages: next,
       ...(stillFits ? {} : { modelId: null }),
     });
@@ -118,18 +113,13 @@ export const Welcome: React.FC<WelcomeProps> = ({
           count: weak.length,
           languages: listOf(weak),
         })
-      : languagesFromOS
-        ? t(
-            platform === "macos"
-              ? "onboarding.welcome.hint.fromMac"
-              : platform === "windows"
-                ? "onboarding.welcome.hint.fromPc"
-                : "onboarding.welcome.hint.fromComputer",
-          )
-        : "";
+      : "";
 
   // What the menus are in right now (a preview never writes the setting).
   const uiLanguage = getSupportedLanguage(ui) || "en";
+  const uiLanguageName =
+    SUPPORTED_LANGUAGES.find((l) => l.code === uiLanguage)?.nativeName ??
+    uiLanguage;
   const changeUiLanguage = (code: string) => {
     i18n.changeLanguage(code);
     if (!preview) updateSetting("app_language", code);
@@ -138,17 +128,31 @@ export const Welcome: React.FC<WelcomeProps> = ({
   return (
     <OnboardingShell
       progress={progress}
-      left={
-        <label className="flex shrink-0 items-center gap-[6px] whitespace-nowrap text-small text-ink-3">
-          {t("onboarding.welcome.menusIn")}
+      pill={
+        // Quiet, like Back: a setting for the window, not a step. The native
+        // menu sits invisibly over the words, which say what it changes (the
+        // menus) apart from the languages you dictate in below.
+        <label
+          title={t("onboarding.welcome.appLanguage")}
+          className="relative -me-[8px] flex shrink-0 cursor-pointer items-center gap-[6px] rounded-lg px-[8px] py-[4px] text-small text-ink-2 transition-colors hover:bg-wash hover:text-text has-[select:focus-visible]:bg-wash has-[select:focus-visible]:text-text"
+        >
+          <Globe size={16} aria-hidden="true" />
+          <span>
+            <Trans
+              i18nKey="onboarding.welcome.menusIn"
+              values={{ language: uiLanguageName }}
+              components={{ b: <b className="font-semibold text-text" /> }}
+            />
+          </span>
+          <ChevronDown size={14} aria-hidden="true" />
           <select
-            aria-label={t("onboarding.welcome.menusLabel")}
+            aria-label={t("onboarding.welcome.appLanguage")}
             value={uiLanguage}
             onChange={(e) => changeUiLanguage(e.target.value)}
-            className="rounded-[7px] border border-line bg-transparent px-[6px] py-[3px] text-small text-text"
+            className="absolute inset-0 cursor-pointer opacity-0"
           >
             {SUPPORTED_LANGUAGES.map((l) => (
-              <option key={l.code} value={l.code}>
+              <option key={l.code} value={l.code} lang={l.code}>
                 {l.nativeName}
               </option>
             ))}
@@ -174,11 +178,9 @@ export const Welcome: React.FC<WelcomeProps> = ({
           <HandyTextLogo width={112} className="mb-[4px] block" />
         </div>
         <ScreenTitle>{t("onboarding.welcome.title")}</ScreenTitle>
-        <ScreenSub className="mt-[4px]! max-w-none!">
-          {t("onboarding.welcome.subtitle")}
-        </ScreenSub>
+        <ScreenSub>{t("onboarding.welcome.subtitle")}</ScreenSub>
 
-        <div className="mt-[18px] flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-panel border-[1.5px] border-line-strong bg-background">
+        <div className="mt-lead flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-panel border-[1.5px] border-line-strong bg-background">
           {/* Clicks around the chips go to the search (a <label> would hand
               them to the first chip, which removes it). */}
           <div
@@ -197,9 +199,9 @@ export const Welcome: React.FC<WelcomeProps> = ({
                   e.preventDefault();
                   toggle(code);
                 }}
-                className="group inline-flex h-[28px] cursor-pointer items-center gap-[6px] rounded-full border-[1.5px] border-line-strong bg-background ps-[12px] pe-[6px] text-small font-semibold text-text hover:border-[color-mix(in_srgb,var(--color-logo-stroke)_40%,var(--color-line-strong))]"
+                className="group inline-flex h-[28px] cursor-pointer items-center gap-[6px] rounded-full border-[1.5px] border-line-strong bg-background ps-[12px] pe-[6px] text-small font-semibold text-text hover:border-plum-hover"
               >
-                <bdi lang={code}>{spokenLanguage(code)?.native ?? code}</bdi>
+                <bdi lang={code}>{getLanguage(code).native}</bdi>
                 <span className="grid size-[18px] place-items-center rounded-full leading-none text-ink-2 group-hover:bg-[color-mix(in_srgb,var(--color-text)_10%,transparent)]">
                   <RemoveIcon />
                 </span>
@@ -286,8 +288,8 @@ export const Welcome: React.FC<WelcomeProps> = ({
                     onClick={() => set({ script: s.id })}
                     className={`inline-flex h-[34px] cursor-pointer items-center gap-[8px] rounded-control border-[1.5px] bg-background ps-[10px] pe-[14px] text-small font-semibold text-text ${
                       picked
-                        ? "border-plum-pick"
-                        : "border-line-strong hover:border-[color-mix(in_srgb,var(--color-logo-stroke)_40%,var(--color-line-strong))]"
+                        ? "border-plum"
+                        : "border-line-strong hover:border-plum-hover"
                     }`}
                   >
                     <Radio checked={picked} />

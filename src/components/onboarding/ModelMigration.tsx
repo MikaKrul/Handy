@@ -14,8 +14,10 @@ import { Spinner } from "../ui/Spinner";
 import { TextLink } from "../ui/TextLink";
 import { DoneMark } from "../shared/DoneMark";
 import { ProgressRing } from "../shared/ProgressRing";
+import { Tag } from "../shared/Tag";
 import {
   OnboardingShell,
+  ScreenGap,
   ScreenMain,
   ScreenSub,
   ScreenTitle,
@@ -53,7 +55,6 @@ const ModelMigration: React.FC<ModelMigrationProps> = ({
     downloadingModels,
     verifyingModels,
     downloadProgress,
-    downloadStats,
     downloadModel,
     selectModel,
   } = useModelStore();
@@ -157,21 +158,24 @@ const ModelMigration: React.FC<ModelMigrationProps> = ({
     !outcomes[target.retired.id] &&
     isReplacementReady(target);
 
-  // Combined speed and time remaining across the parallel downloads.
-  let speed = 0;
-  let remainingMb = 0;
+  // Combined speed and time remaining across the parallel downloads. Until
+  // every active row has a measured rate, its remaining bytes would count
+  // with no speed behind them, so no estimate is shown.
+  let rate = 0;
+  let remainingBytes = 0;
+  let measured = true;
   for (const p of chosen) {
     const state = rowState(p);
     if (typeof state !== "number" || state >= 100) continue;
-    const id = p.replacement.id;
-    const progress = downloadProgress[id];
-    speed += downloadStats[id]?.speed ?? 0;
-    remainingMb +=
+    const progress = downloadProgress[p.replacement.id];
+    if (progress?.bytes_per_sec == null) measured = false;
+    rate += progress?.bytes_per_sec ?? 0;
+    remainingBytes +=
       progress && progress.total > 0
-        ? (progress.total - progress.downloaded) / (1024 * 1024)
-        : Number(p.replacement.size_mb) * (1 - state / 100);
+        ? progress.total - progress.downloaded
+        : Number(p.replacement.size_mb) * 1024 * 1024 * (1 - state / 100);
   }
-  const secondsLeft = speed > 0 ? remainingMb / speed : 0;
+  const secondsLeft = measured && rate > 0 ? remainingBytes / rate : 0;
   // Unit formatting is localized by the browser ("3 min", "3 Min."), so only
   // the "remaining" wrapper needs translating.
   const timeLeft =
@@ -305,9 +309,11 @@ const ModelMigration: React.FC<ModelMigrationProps> = ({
           {t("onboarding.migration.timeRemaining", { time: timeLeft })}
         </span>
       )}
-      {speed > 0 && (
+      {rate > 0 && (
         <span className="tabular-nums">
-          {t("modelSelector.downloadSpeed", { speed: speed.toFixed(1) })}
+          {t("modelSelector.downloadSpeed", {
+            speed: (rate / (1024 * 1024)).toFixed(1),
+          })}
         </span>
       )}
     </span>
@@ -325,10 +331,11 @@ const ModelMigration: React.FC<ModelMigrationProps> = ({
       hint={hint}
       primary={primary}
     >
-      <ScreenMain task>
-        <ScreenTitle task>{t("onboarding.migration.title")}</ScreenTitle>
+      <ScreenMain>
+        <ScreenTitle>{t("onboarding.migration.title")}</ScreenTitle>
         <ScreenSub>{t("onboarding.migration.description")}</ScreenSub>
-        <ul className="mt-[28px] mb-0 flex min-h-0 w-full flex-col overflow-y-auto rounded-panel border-[1.5px] border-line-strong px-[22px] py-[4px] text-start">
+        <ScreenGap />
+        <ul className="mb-0 flex min-h-0 w-full flex-col overflow-y-auto rounded-panel border-[1.5px] border-line-strong px-[22px] py-[4px] text-start">
           {rows.map((pair) => (
             <MigrationRow
               key={pair.retired.id}
@@ -442,9 +449,7 @@ const MigrationRow: React.FC<MigrationRowProps> = ({
           <span className="truncate">
             {t("onboarding.migration.replaces", { name: retired.name })}
           </span>
-          <span className="shrink-0 rounded-full border border-line-strong px-[7px] text-[11px] leading-[17px] font-semibold text-ink-2">
-            {t("onboarding.migration.oldFormat")}
-          </span>
+          <Tag>{t("onboarding.migration.oldFormat")}</Tag>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-[8px] text-label text-ink-3">

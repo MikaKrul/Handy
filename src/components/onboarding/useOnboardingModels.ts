@@ -37,7 +37,7 @@ export type DownloadState =
   | { state: "none" }
   | { state: "downloading"; progress: number; etaSeconds: number | null }
   | { state: "checking" }
-  | { state: "ready"; onDisk: boolean }
+  | { state: "ready" }
   /** It stopped before it finished: failed, or cut off by a quit. */
   | { state: "failed" };
 
@@ -52,7 +52,6 @@ export const useOnboardingModels = (languages: string[]) => {
   const downloading = useModelStore((s) => s.downloadingModels);
   const verifying = useModelStore((s) => s.verifyingModels);
   const progress = useModelStore((s) => s.downloadProgress);
-  const stats = useModelStore((s) => s.downloadStats);
   const download = useModelStore((s) => s.downloadModel);
   const failedId = useOnboardingStore((s) =>
     s.downloadFailed ? s.downloadId : null,
@@ -94,16 +93,17 @@ export const useOnboardingModels = (languages: string[]) => {
     if (verifying[info.id]) return { state: "checking" };
     if (downloading[info.id]) {
       const p = progress[info.id];
-      const speed = stats[info.id]?.speed; // MB/s
-      const remaining = p ? (p.total - p.downloaded) / 1024 / 1024 : null;
+      const rate = p?.bytes_per_sec;
       return {
         state: "downloading",
         progress: p ? p.percentage / 100 : 0,
         etaSeconds:
-          remaining != null && speed && speed > 0 ? remaining / speed : null,
+          p && p.total > 0 && rate && rate > 0
+            ? (p.total - p.downloaded) / rate
+            : null,
       };
     }
-    if (info.is_downloaded) return { state: "ready", onDisk: false };
+    if (info.is_downloaded) return { state: "ready" };
     if (model.id === failedId) return { state: "failed" };
     return { state: "none" };
   };

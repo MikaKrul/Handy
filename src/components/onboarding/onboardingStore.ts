@@ -28,8 +28,6 @@ interface Persisted {
   step: OnboardingStep;
   /** Spoken languages (codes), in the order they were picked. */
   languages: string[];
-  /** Still the OS locale's guess: nobody has changed it. */
-  languagesFromOS: boolean;
   script: ChineseScriptChoice;
   /** The selected model (catalog id); null means the recommendation. */
   modelId: string | null;
@@ -37,8 +35,6 @@ interface Persisted {
   extraModelId: string | null;
   /** The model being downloaded, or already on disk (catalog id). */
   downloadId: string | null;
-  /** It was on disk before onboarding: "on this computer", not "ready". */
-  downloadOnDisk: boolean;
   /** Back after the Accessibility relaunch: Permissions says so. */
   welcomeBack: boolean;
   /** Which ways of using the shortcut they've done for real (Try it). */
@@ -64,12 +60,10 @@ const locale = () => navigator.language || "en-US";
 const fresh = (): Persisted => ({
   step: "welcome",
   languages: suggestedLanguages(locale()),
-  languagesFromOS: true,
   script: suggestedScript(locale()),
   modelId: null,
   extraModelId: null,
   downloadId: null,
-  downloadOnDisk: false,
   welcomeBack: false,
   lessons: { hold: false, tap: false },
 });
@@ -96,12 +90,10 @@ const load = (): Persisted => {
     return {
       step: pick("step", (v) => STEP_ORDER.includes(v as OnboardingStep)),
       languages: pick("languages", isStringList),
-      languagesFromOS: pick("languagesFromOS", isBool),
       script: pick("script", (v) => CHINESE_SCRIPTS.some((c) => c.id === v)),
       modelId: pick("modelId", isId),
       extraModelId: pick("extraModelId", isId),
       downloadId: pick("downloadId", isId),
-      downloadOnDisk: pick("downloadOnDisk", isBool),
       welcomeBack: pick("welcomeBack", isBool),
       lessons: pick(
         "lessons",
@@ -122,12 +114,10 @@ const save = (state: OnboardingState) => {
   const persisted: Persisted = {
     step: state.step,
     languages: state.languages,
-    languagesFromOS: state.languagesFromOS,
     script: state.script,
     modelId: state.modelId,
     extraModelId: state.extraModelId,
     downloadId: state.downloadId,
-    downloadOnDisk: state.downloadOnDisk,
     welcomeBack: state.welcomeBack,
     lessons: state.lessons,
   };

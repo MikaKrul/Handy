@@ -24,6 +24,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashMap;
 use std::future::Future;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::Manager;
@@ -71,6 +72,11 @@ fn emit_transcription_complete(
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
 const EMPTY_CUSTOM_WORDS: &str = "(none provided)";
+
+/// Bumped each time a recording session takes over the tray and overlay. A
+/// paste still finishing for an earlier session compares against it so its
+/// cleanup doesn't hide the new session's overlay or reset its tray icon.
+static RECORDING_SESSION: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone, serde::Serialize)]
 struct RecordingErrorEvent {
@@ -601,6 +607,7 @@ impl ShortcutAction for TranscribeAction {
         }
 
         let binding_id = binding_id.to_string();
+        RECORDING_SESSION.fetch_add(1, Ordering::SeqCst);
         let tray_started = Instant::now();
         set_tray_state(app, TrayIconState::Recording);
         let tray_elapsed = tray_started.elapsed();
@@ -977,56 +984,64 @@ impl ShortcutAction for TranscribeAction {
                                 let paste_time = Instant::now();
                                 let final_text = processed.final_text;
                                 let rm_for_paste = Arc::clone(&rm);
-                                ah.run_on_main_thread(move || {
-                                    if rm_for_paste.was_cancelled_since(cancel_generation) {
-                                        debug!("Transcription operation cancelled before paste");
-                                        utils::hide_recording_overlay(&ah_clone);
-                                        set_tray_state(&ah_clone, TrayIconState::Idle);
-                                        return;
-                                    }
-
-                                    let pasted = if crate::commands::insert_into_practice_note(
-                                        &ah_clone,
-                                        &final_text,
-                                    ) {
-                                        Ok(())
-                                    } else {
-                                        utils::paste(final_text, ah_clone.clone())
-                                    };
-                                    let outcome = match pasted {
-                                        Ok(()) => {
+                                // Taken before the paste thread exists, and so
+                                // before the next session can start.
+                                let session = RECORDING_SESSION.load(Ordering::SeqCst);
+                                // Paste on its own thread, not the main one: it
+                                // sleeps between steps, and a paste into Handy's
+                                // own windows needs the main thread free to land.
+                                std::thread::Builder::new()
+                                    .name("paste".into())
+                                    .spawn(move || {
+                                        if rm_for_paste.was_cancelled_since(cancel_generation) {
                                             debug!(
-                                                "Text pasted successfully in {:?}",
-                                                paste_time.elapsed()
+                                                "Transcription operation cancelled before paste"
                                             );
-                                            TranscriptionOutcome::Typed
+                                            utils::hide_recording_overlay(&ah_clone);
+                                            set_tray_state(&ah_clone, TrayIconState::Idle);
+                                            return;
                                         }
-                                        Err(e) => {
-                                            error!("Failed to paste transcription: {}", e);
-                                            let _ = ah_clone.emit("paste-error", ());
-                                            TranscriptionOutcome::Failed
+
+                                        let outcome =
+                                            match utils::paste(final_text, ah_clone.clone()) {
+                                                Ok(()) => {
+                                                    debug!(
+                                                        "Text pasted successfully in {:?}",
+                                                        paste_time.elapsed()
+                                                    );
+                                                    TranscriptionOutcome::Typed
+                                                }
+                                                Err(e) => {
+                                                    error!("Failed to paste transcription: {}", e);
+                                                    let _ = ah_clone.emit("paste-error", ());
+                                                    TranscriptionOutcome::Failed
+                                                }
+                                            };
+                                        // A new session may have started while
+                                        // this paste ran; the UI is now its.
+                                        if RECORDING_SESSION.load(Ordering::SeqCst) == session {
+                                            utils::hide_recording_overlay(&ah_clone);
+                                            set_tray_state(&ah_clone, TrayIconState::Idle);
                                         }
-                                    };
-                                    utils::hide_recording_overlay(&ah_clone);
-                                    set_tray_state(&ah_clone, TrayIconState::Idle);
-                                    emit_transcription_complete(
-                                        &ah_clone,
-                                        outcome,
-                                        sample_count,
-                                        stop_time,
-                                    );
-                                })
-                                .unwrap_or_else(|e| {
-                                    error!("Failed to run paste on main thread: {:?}", e);
-                                    utils::hide_recording_overlay(&ah);
-                                    set_tray_state(&ah, TrayIconState::Idle);
-                                    emit_transcription_complete(
-                                        &ah,
-                                        TranscriptionOutcome::Failed,
-                                        sample_count,
-                                        stop_time,
-                                    );
-                                });
+                                        emit_transcription_complete(
+                                            &ah_clone,
+                                            outcome,
+                                            sample_count,
+                                            stop_time,
+                                        );
+                                    })
+                                    .map(|_| ())
+                                    .unwrap_or_else(|e| {
+                                        error!("Failed to start the paste thread: {:?}", e);
+                                        utils::hide_recording_overlay(&ah);
+                                        set_tray_state(&ah, TrayIconState::Idle);
+                                        emit_transcription_complete(
+                                            &ah,
+                                            TranscriptionOutcome::Failed,
+                                            sample_count,
+                                            stop_time,
+                                        );
+                                    });
                             }
                         }
                         Err(err) => {
