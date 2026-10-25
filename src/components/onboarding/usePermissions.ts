@@ -12,8 +12,8 @@ import { toast } from "sonner";
 import { commands } from "@/bindings";
 import { useSettingsStore } from "@/stores/settingsStore";
 
-export type PermissionStatus = "checking" | "needed" | "waiting" | "granted";
-export type PermissionPlatform = "macos" | "windows" | "other";
+type PermissionStatus = "checking" | "needed" | "waiting" | "granted";
+type PermissionPlatform = "macos" | "windows" | "other";
 
 export interface Permissions {
   platform: PermissionPlatform;
@@ -34,18 +34,19 @@ const MAX_POLLING_ERRORS = 3;
 // No answer seen this long after asking: offer the button again.
 const WAITING_TIMEOUT_MS = 15_000;
 
+/** macOS's answers: `[accessibility, microphone]`. */
+const readMac = () =>
+  Promise.all([checkAccessibilityPermission(), checkMicrophonePermission()]);
+
 const currentPlatform = (): PermissionPlatform => {
   const p = platform();
   return p === "macos" ? "macos" : p === "windows" ? "windows" : "other";
 };
 
 /**
- * The OS permissions Handy needs: the microphone on macOS and Windows, and
- * Accessibility on macOS. Checks on mount, asks on request, then polls every
- * second until granted. A row waits until Handy's window is back in front
- * (the prompt or Settings was dismissed) and goes back to asking if it still
- * isn't allowed. Granting Accessibility initializes typing and the shortcut
- * so no relaunch is needed. A preview never touches the OS.
+ * Microphone (macOS, Windows) and Accessibility (macOS) permissions: check,
+ * request, then poll until granted. Granting Accessibility initializes input
+ * so no relaunch is needed.
  */
 export const usePermissions = (preview: boolean): Permissions => {
   const { t } = useTranslation();
@@ -108,10 +109,7 @@ export const usePermissions = (preview: boolean): Permissions => {
     const check = async () => {
       if (isMacOS) {
         try {
-          const [acc, mic] = await Promise.all([
-            checkAccessibilityPermission(),
-            checkMicrophonePermission(),
-          ]);
+          const [acc, mic] = await readMac();
           if (acc) await initializeAfterAccessibility();
           setAccessibility(acc ? "granted" : "needed");
           setMicrophone(mic ? "granted" : "needed");
@@ -155,10 +153,7 @@ export const usePermissions = (preview: boolean): Permissions => {
           errorCountRef.current = 0;
           return;
         }
-        const [acc, mic] = await Promise.all([
-          checkAccessibilityPermission(),
-          checkMicrophonePermission(),
-        ]);
+        const [acc, mic] = await readMac();
         setAccessibility((prev) => {
           if (acc && prev !== "granted") initializeAfterAccessibility();
           return acc ? "granted" : prev;
@@ -193,10 +188,7 @@ export const usePermissions = (preview: boolean): Permissions => {
         return;
       }
       if (!isMacOS) return;
-      const [acc, mic] = await Promise.all([
-        checkAccessibilityPermission(),
-        checkMicrophonePermission(),
-      ]);
+      const [acc, mic] = await readMac();
       setAccessibility((prev) =>
         prev === "waiting" ? (acc ? "granted" : "needed") : prev,
       );

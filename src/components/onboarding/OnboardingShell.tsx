@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 interface OnboardingShellProps {
   /** Where this screen is in the flow; no dashes on a standalone screen. */
   progress?: { index: number; count: number };
-  /** Top right: Welcome's menu language, then the download pill from Model on. */
+  /** Top right: Welcome's menu language. */
   pill?: React.ReactNode;
   children: React.ReactNode;
   /** The footer's left slot; replaces Back. */
@@ -16,12 +16,7 @@ interface OnboardingShellProps {
   primary?: React.ReactNode;
 }
 
-/**
- * The window every onboarding screen draws in: progress dashes and the
- * download pill on top, the screen, then a footer with Back (or the screen's
- * own left slot), a hint and the primary button. 680 × 600, the window's
- * own size, centred if the window grows.
- */
+/** Frame for every onboarding screen: progress dashes, screen, footer. */
 export const OnboardingShell: React.FC<OnboardingShellProps> = ({
   progress,
   pill,
@@ -38,9 +33,9 @@ export const OnboardingShell: React.FC<OnboardingShellProps> = ({
       data-onboarding=""
       className="h-screen w-full flex overflow-hidden bg-background select-none cursor-default"
     >
-      {/* A disabled button goes neutral, not faded pink: a screen's only pink
-          button is the one to press next. */}
-      <div className="relative m-auto grid h-[600px] w-[680px] shrink-0 grid-rows-[56px_1fr_76px] font-ui text-body leading-[1.6] text-text antialiased [&_button:disabled]:border-line [&_button:disabled]:bg-wash [&_button:disabled]:text-ink-3 [&_button:disabled]:opacity-100">
+      {/* Disabled buttons go neutral so the only pink one is the next step.
+          The column is capped so a long row truncates instead of widening. */}
+      <div className="relative m-auto grid h-[600px] w-[720px] shrink-0 grid-cols-[minmax(0,1fr)] grid-rows-[48px_1fr_76px] font-ui text-body leading-[1.6] text-text antialiased [&_button:disabled]:border-line [&_button:disabled]:bg-wash [&_button:disabled]:text-ink-3 [&_button:disabled]:opacity-100">
         <div className="relative flex items-center justify-between ps-[28px] pe-[20px]">
           {progress ? (
             <div
@@ -59,7 +54,7 @@ export const OnboardingShell: React.FC<OnboardingShellProps> = ({
                       ? "w-[28px] bg-background-ui"
                       : i < progress.index
                         ? "w-[14px] bg-ink-3"
-                        : "w-[14px] bg-line-strong"
+                        : "w-[14px] bg-line"
                   }`}
                 />
               ))}
@@ -73,8 +68,6 @@ export const OnboardingShell: React.FC<OnboardingShellProps> = ({
         <div className="flex items-center justify-between gap-[16px] px-[28px] pb-[4px]">
           {left ??
             (onBack ? (
-              // Quiet next to the primary action: secondary ink, and on hover
-              // the full text on the wash, like the screens' own rows.
               <button
                 type="button"
                 onClick={onBack}
@@ -85,11 +78,11 @@ export const OnboardingShell: React.FC<OnboardingShellProps> = ({
             ) : (
               <span />
             ))}
-          <span
-            className={`ms-auto text-small ${hintTone === "warning" ? "text-warning" : "text-ink-3"}`}
+          <div
+            className={`ms-auto min-w-0 text-small ${hintTone === "warning" ? "text-warning" : "text-ink-3"}`}
           >
             {hint}
-          </span>
+          </div>
           {primary}
         </div>
       </div>
@@ -97,56 +90,85 @@ export const OnboardingShell: React.FC<OnboardingShellProps> = ({
   );
 };
 
+/** Horizontal alignment; text is always centred. */
 const ALIGN = {
-  center: "items-center text-center",
-  stretch: "items-stretch text-center",
-  start: "items-start text-start",
+  center: "items-center",
+  stretch: "items-stretch",
 } as const;
 
-/**
- * A screen's main block, inside the design's gutters and centred top to
- * bottom. One taller than the space starts at the top instead (8px in) rather
- * than spilling over the progress dashes. Between the header and the content
- * goes a ScreenGap.
- */
+/** Gap between header and content, per layout. */
+const GAP = {
+  center: "min-h-lead max-h-lead-max flex-[1_1_0]",
+  top: "h-lead flex-none",
+} as const;
+
+/** A screen's main block: header, gap, content. */
 export const ScreenMain = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & {
-    /** Model's full list: 40px gutters (600 wide). */
-    wide?: boolean;
-    /** The column: centred (default), full width, or from the start edge. */
     align?: keyof typeof ALIGN;
+    /** Usually a ScreenHeader. */
+    header?: React.ReactNode;
+    /** "center" centres everything; "top" pins the header and content fills. */
+    layout?: keyof typeof GAP;
   }
 >(
   (
-    { children, wide = false, align = "center", className = "", ...rest },
+    {
+      children,
+      align = "center",
+      header,
+      layout = "center",
+      className = "",
+      ...rest
+    },
     ref,
   ) => (
     <div
       ref={ref}
       {...rest}
-      className={`flex h-full min-h-0 min-w-0 flex-col justify-center-safe py-[8px] ${ALIGN[align]} ${wide ? "px-gutter-wide" : "px-gutter"} ${className}`}
+      className={`flex h-full min-h-0 min-w-0 flex-col ${layout === "center" ? "justify-center-safe" : ""} text-center px-gutter ${className}`}
     >
-      {children}
+      {header}
+      {header && <div aria-hidden="true" className={GAP[layout]} />}
+      <div
+        className={`flex min-h-0 w-full flex-col ${layout === "top" ? "flex-1" : ""} ${ALIGN[align]}`}
+      >
+        {children}
+      </div>
     </div>
   ),
 );
 ScreenMain.displayName = "ScreenMain";
 
-/** A screen title: 26px display, or 40px for a finish line (All set). */
+/** A screen's title and subtitle; pass as ScreenMain's header. */
+export const ScreenHeader: React.FC<{
+  title: React.ReactNode;
+  sub?: React.ReactNode;
+  subClassName?: string;
+  /** Note above the title, out of flow so it doesn't push the title down. */
+  above?: React.ReactNode;
+}> = ({ title, sub, subClassName, above }) => (
+  <div className="relative w-full flex-none">
+    {above && (
+      <div className="absolute inset-x-0 bottom-full mb-[12px]">{above}</div>
+    )}
+    <ScreenTitle>{title}</ScreenTitle>
+    {sub && <ScreenSub className={subClassName}>{sub}</ScreenSub>}
+  </div>
+);
+
 export const ScreenTitle: React.FC<{
   children: React.ReactNode;
-  hero?: boolean;
   className?: string;
-}> = ({ children, hero = false, className = "" }) => (
+}> = ({ children, className = "" }) => (
   <h1
-    className={`m-0 font-display leading-[1.15] tracking-[-0.015em] text-balance ${hero ? "text-hero font-[750]" : "text-title font-[650]"} ${className}`}
+    className={`m-0 font-display leading-[1.15] tracking-[-0.015em] text-balance text-title font-[650] ${className}`}
   >
     {children}
   </h1>
 );
 
-/** The line under a title: 15px secondary text, 4px down. */
 export const ScreenSub: React.FC<{
   children: React.ReactNode;
   className?: string;
@@ -154,12 +176,4 @@ export const ScreenSub: React.FC<{
   <p className={`mt-[4px] mb-0 text-ink-2 text-pretty ${className}`}>
     {children}
   </p>
-);
-
-/**
- * The space between a screen's header and its content: 20px when the screen
- * is full, growing to 32px when there's room.
- */
-export const ScreenGap: React.FC = () => (
-  <div aria-hidden="true" className="min-h-lead max-h-lead-max flex-[1_1_0]" />
 );

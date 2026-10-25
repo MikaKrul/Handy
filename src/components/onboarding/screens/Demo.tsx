@@ -1,36 +1,38 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { Trans, useTranslation } from "react-i18next";
+import { commands } from "@/bindings";
 import { useSettings } from "@/hooks/useSettings";
-import { useShortcutPress, type PressKind } from "@/hooks/useShortcutPress";
 import { useShortcutCapture } from "@/hooks/useShortcutCapture";
-import { useSuspendedShortcuts } from "../useSuspendedShortcuts";
-import { Pencil } from "lucide-react";
-import { type OSType } from "@/lib/utils/keyboard";
+import { type OSType, spaceDoesNotClick } from "@/lib/utils/keyboard";
+import { prefersReducedMotion } from "@/lib/utils/motion";
+import { cjkSubsetFont } from "@/lib/utils/cjkFont";
 import { Button } from "../../ui/Button";
-import { TextLink } from "../../ui/TextLink";
-import { Keycaps } from "../../shared/Keycaps";
-import HandyHand from "../../icons/HandyHand";
-import {
-  OnboardingShell,
-  ScreenGap,
-  ScreenMain,
-  ScreenSub,
-  ScreenTitle,
-} from "../OnboardingShell";
+import { CapturedKeys, captureHintKey, Keycaps } from "../../shared/Keycaps";
+import { DesktopBar } from "../DesktopBar";
+import { WindowBar } from "../WindowBar";
+import { OnboardingShell, ScreenHeader, ScreenMain } from "../OnboardingShell";
 import { useOnboardingStore } from "../onboardingStore";
 import { demoLine } from "../data/samples";
 import "./demo.css";
 
 type Mode = "hold" | "tap";
-type Hand = "rest" | "down";
 type PillState = "hidden" | "rec" | "work";
-type Beat = "reset" | "press" | "lift" | "release" | "land";
+/** The pointer on the drawn screen: off to the side, on the field, gone. */
+type Pointer = "rest" | "field" | "gone";
+/** The sentence's lit phrase: click, press and talk, the words appear. */
+type Phrase = 0 | 1 | 2;
+/** `lift` is a tap's first key-up, while Handy keeps listening. */
+type Beat = "reset" | "point" | "click" | "press" | "lift" | "release" | "land";
 
 /**
- * Hold and tap take turns, so someone who only watches sees both. The hand
- * has two poses, resting and pressed: in hold it stays pressed while it
- * records; in tap it presses for less than the hold threshold and goes back
- * to rest, and recording carries on (the pill says so) until the next tap.
+ * Each way's beats, in ms from its start. `ms` is its full length (then the
+ * other way plays); `still` is the moment shown under reduced motion.
  */
 const CHAPTERS: Record<
   Mode,
@@ -39,32 +41,33 @@ const CHAPTERS: Record<
   hold: {
     script: [
       [0, "reset"],
-      [900, "press"],
-      [3700, "release"],
-      [4300, "land"],
+      [300, "point"], //    the glide takes 850ms
+      [1200, "click"],
+      [2400, "press"], //   the keys held, Handy listens: 2s
+      [4400, "release"],
+      [5200, "land"], //    the words stay 2s
     ],
     ms: 7200,
-    still: 2600,
+    still: 3400,
   },
   tap: {
     script: [
       [0, "reset"],
-      [900, "press"],
-      [1080, "lift"],
-      [6000, "press"],
-      [6180, "release"],
-      [6780, "land"],
+      [300, "point"],
+      [1200, "click"],
+      [2400, "press"],
+      [2580, "lift"], //    a tap; Handy keeps listening: 2.8s
+      [5400, "press"],
+      [5580, "release"], // the second tap
+      [6180, "land"], //    the words stay 2s
     ],
-    ms: 9600,
-    still: 3600,
+    ms: 8180,
+    still: 4000,
   },
 };
 
-/** Nobody tapped again: stop for them, without the tick. */
-const TAP_TIMEOUT_MS = 12000;
-
-const reducedMotion = () =>
-  matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** Under reduced motion: each way's still picture, in turn. */
+const STILL_MS = 5000;
 
 /* ---------------- the recording pill ---------------- */
 
@@ -144,145 +147,238 @@ const DemoPill: React.FC<{ state: PillState; still: boolean }> = ({
   );
 };
 
-/* ---------------- the screen ---------------- */
+/* ---------------- the laptop ---------------- */
 
-const DemoScreen: React.FC<{
+const DemoLaptop: React.FC<{
   os: OSType;
-  app: string;
+  shortcut: string;
+  keyDown: boolean;
+  mode: Mode;
   text: string;
   landed: boolean;
   landKey: number;
   lang: string;
   pill: PillState;
   still: boolean;
-  label: string;
-}> = ({ os, app, text, landed, landKey, lang, pill, still, label }) => {
-  const isMac = os === "macos";
-  const tray = (
-    <span
-      className={`grid place-items-center transition-[color] duration-200 ${
-        pill === "rec"
-          ? "text-background-ui"
-          : pill === "work"
-            ? "opacity-45"
-            : ""
-      }`}
-    >
-      <HandyHand width={11} height={12} tone="current" />
-    </span>
-  );
-  const clock = <span className="tabular-nums">9:41</span>;
-  const barClass =
-    "absolute inset-x-0 z-[2] flex items-center bg-background px-[10px] text-[10px] font-semibold text-ink-2";
+  dimmed: boolean;
+  pointer: Pointer;
+  /** Bumped on each click, to replay its ring. */
+  clickKey: number;
+  /** The field has the caret: it's been clicked, or you pressed the keys. */
+  focused: boolean;
+}> = ({
+  os,
+  shortcut,
+  keyDown,
+  mode,
+  text,
+  landed,
+  landKey,
+  lang,
+  pill,
+  still,
+  dimmed,
+  pointer,
+  clickKey,
+  focused,
+}) => {
+  const { t } = useTranslation();
+  // On Linux the pointer stays put and only clicks: WebKitGTK renders the
+  // glide and fade unevenly. It sits at the field's end, clear of the text.
+  const settled = os === "linux";
+  const place: Pointer = settled ? "field" : pointer;
+  // Measured: the field's position varies by app and OS.
+  const screenRef = useRef<HTMLDivElement>(null);
+  const fieldRef = useRef<HTMLDivElement>(null);
+  const [at, setAt] = useState({ x: 0, y: 0 });
+  useLayoutEffect(() => {
+    const screen = screenRef.current;
+    const sc = screen?.getBoundingClientRect();
+    const f = fieldRef.current?.getBoundingClientRect();
+    if (!screen || !sc || !f || place === "gone") return;
+    setAt(
+      place === "field"
+        ? {
+            x: settled
+              ? f.right - sc.left - 22
+              : f.left - sc.left + Math.min(58, f.width * 0.3),
+            y: f.top - sc.top + f.height / 2,
+          }
+        : { x: screen.offsetWidth * 0.8, y: screen.offsetHeight * 0.86 },
+    );
+  }, [place, settled, mode, os]);
   return (
     <div
       role="img"
-      aria-label={label}
-      className="relative h-[276px] w-full select-none overflow-hidden rounded-card border-[1.5px] border-line-strong bg-demo-screen"
+      aria-label={t("onboarding.demo.screenLabel")}
+      className="demo-laptop"
     >
-      {isMac ? (
+      <div className="demo-lid">
+        <span className="demo-cam" />
         <div
-          className={`${barClass} top-0 h-[20px] gap-[12px] border-b border-line`}
+          ref={screenRef}
+          className={`demo-screen ${dimmed ? "is-dimmed" : ""}`}
         >
-          <span className="h-[10px] w-[9px] rounded-[45%_45%_50%_50%] bg-ink-2" />
-          <i className="h-[5px] w-[30px] rounded-[3px] bg-line-strong" />
-          <i className="h-[5px] w-[20px] rounded-[3px] bg-line-strong" />
-          <i className="h-[5px] w-[24px] rounded-[3px] bg-line-strong" />
-          <span className="flex-1" />
-          {tray}
-          {clock}
-        </div>
-      ) : (
-        <div
-          className={`${barClass} bottom-0 h-[26px] gap-[8px] border-t border-line`}
-        >
-          <span className="flex-1" />
-          <span className="grid size-[12px] grid-cols-2 gap-[2px] opacity-80">
-            {[0, 1, 2, 3].map((i) => (
-              <i key={i} className="bg-ink-2" />
-            ))}
-          </span>
-          {[0, 1, 2].map((i) => (
-            <i key={i} className="size-[14px] rounded-[4px] bg-line-strong" />
-          ))}
-          <span className="flex-1" />
-          {tray}
-          {clock}
-        </div>
-      )}
-      <div
-        className={`absolute start-1/2 w-[460px] -ms-[230px] overflow-hidden rounded-[9px] border border-line-strong bg-demo-window text-start ${isMac ? "top-[38px]" : "top-[16px]"}`}
-      >
-        <div className="relative flex h-[22px] items-center border-b border-line px-[9px] text-[10.5px] font-semibold text-ink-3">
-          {isMac ? (
-            <>
-              <span className="flex gap-[5px]">
-                {[0, 1, 2].map((i) => (
-                  <i
-                    key={i}
-                    className="size-[8px] rounded-full bg-line-strong"
-                  />
-                ))}
-              </span>
-              <span className="absolute inset-x-0 text-center">{app}</span>
-            </>
-          ) : (
-            <>
-              <span>{app}</span>
-              <span className="ms-auto flex gap-[12px]">
-                {[0, 1, 2].map((i) => (
-                  <i key={i} className="h-[1.5px] w-[8px] bg-ink-3" />
-                ))}
-              </span>
-            </>
-          )}
-        </div>
-        <div className="min-h-[84px] px-[13px] py-[10px] text-[17px] leading-[1.4] text-text">
-          <span
-            key={landKey}
-            dir="auto"
-            lang={lang}
-            className={landed ? "demo-landed rounded-[3px]" : "rounded-[3px]"}
+          <DesktopBar
+            os={os}
+            size="demo"
+            state={
+              pill === "rec"
+                ? "recording"
+                : pill === "work"
+                  ? "transcribing"
+                  : "idle"
+            }
+          />
+          <div
+            className="demo-app"
+            data-mode={mode}
+            data-focused={focused || undefined}
           >
-            {text}
+            <WindowBar
+              size="sm"
+              title={t(
+                mode === "hold"
+                  ? "onboarding.demo.apps.messages"
+                  : "onboarding.demo.apps.notes",
+              )}
+            />
+            <div className="demo-app-body">
+              {mode === "hold" ? (
+                <p className="demo-them">{t("onboarding.demo.chat")}</p>
+              ) : (
+                <p className="demo-note-title">
+                  {t("onboarding.demo.noteTitle")}
+                </p>
+              )}
+              <div ref={fieldRef} className="demo-field">
+                <span
+                  key={landKey}
+                  dir="auto"
+                  lang={lang}
+                  className={`${landed ? "demo-landed" : ""} ${cjkSubsetFont(text) ?? ""}`}
+                >
+                  {text}
+                </span>
+                <span className="demo-caret ms-[1px] inline-block h-[1.1em] w-[1.5px] bg-text align-[-0.18em]" />
+              </div>
+            </div>
+          </div>
+          <div className="demo-pill-wrap">
+            <DemoPill state={pill} still={still} />
+          </div>
+          <div className="demo-keys">
+            <Keycaps
+              binding={shortcut}
+              osType={os}
+              size="screen"
+              pressed={keyDown}
+            />
+          </div>
+          <span
+            className="demo-pointer"
+            data-p={place}
+            data-settled={settled || undefined}
+            style={{ transform: `translate(${at.x}px, ${at.y}px)` }}
+          >
+            {clickKey > 0 && <i key={clickKey} className="demo-click" />}
+            <svg width="14" height="20" viewBox="0 0 11 16" aria-hidden="true">
+              <path
+                d="M1 1v12.2l3-2.9 1.9 4.5 2-.9-1.9-4.4h4.1z"
+                fill="#111"
+                stroke="#fff"
+                strokeWidth="1.1"
+                strokeLinejoin="round"
+              />
+            </svg>
           </span>
-          <span className="demo-caret ms-[1px] inline-block h-[1.1em] w-[1.5px] bg-text align-[-0.18em]" />
         </div>
       </div>
-      <div
-        className={`absolute start-1/2 z-[3] -translate-x-1/2 rtl:translate-x-1/2 ${isMac ? "bottom-[12px]" : "bottom-[36px]"}`}
-      >
-        <DemoPill state={pill} still={still} />
+      <div className="demo-base">
+        <span className="demo-notch" />
       </div>
+      <div className="demo-floor" />
     </div>
+  );
+};
+
+/* ---------------- the sentence ---------------- */
+
+/** One phrase of the sentence, lit while it's happening. */
+const Lit: React.FC<{ on?: boolean; children?: React.ReactNode }> = ({
+  on = false,
+  children,
+}) => <span className={`demo-phrase ${on ? "is-on" : ""}`}>{children}</span>;
+
+/**
+ * Each way's instructions, current phrase lit. All variants share one grid
+ * cell so switching never shifts layout, even when a translation wraps.
+ */
+const DemoSentence: React.FC<{
+  mode: Mode;
+  phrase: Phrase;
+  /** While changing the shortcut, one line in the sentence's place. */
+  say: string | null;
+}> = ({ mode, phrase, say }) => {
+  const { t } = useTranslation();
+  const cell = "col-start-1 row-start-1";
+  return (
+    <>
+      {(["hold", "tap"] as const).map((m) => {
+        const on = !say && m === mode;
+        return (
+          <span
+            key={m}
+            aria-hidden={!on}
+            className={`${cell} ${on ? "demo-swap" : "invisible"}`}
+          >
+            <Trans
+              i18nKey={`onboarding.demo.${m}`}
+              components={[0, 1, 2].map((i) => (
+                <Lit key={i} on={on && phrase === i} />
+              ))}
+            />
+          </span>
+        );
+      })}
+      {[t("onboarding.demo.pressKeys"), t("onboarding.demo.addKey")].map(
+        (line) => (
+          <span key={line} aria-hidden="true" className={`${cell} invisible`}>
+            {line}
+          </span>
+        ),
+      )}
+      {say && (
+        <span role="status" className={`${cell} font-[650] text-text`}>
+          {say}
+        </span>
+      )}
+    </>
   );
 };
 
 interface DemoProps {
   progress: { index: number; count: number };
-  pill?: React.ReactNode;
   os: OSType;
   /** The model is ready, so Try it can start. */
   ready: boolean;
-  /** Its download stopped: the pill offers a retry. */
-  downloadFailed?: boolean;
+  /** Its download stopped: the button retries it. */
+  downloadFailed: boolean;
+  /** The download's status, beside the button it's holding back. */
+  download: React.ReactNode;
+  onRetry: () => void;
   onBack: () => void;
   onContinue: () => void;
 }
 
-/**
- * Screen 4, while the model downloads: how Handy works. A drawn computer, and
- * under it the shortcut, which the logo hand presses; hold and tap take turns.
- * Pressing the real shortcut here stops the loop and plays the way you used
- * (Handy's rule: held 300 ms or longer is a hold). The global shortcut is
- * suspended while this screen is up, so pressing it doesn't record.
- */
+/** Screen 4: an animated demo of hold and tap while the model downloads. */
 export const Demo: React.FC<DemoProps> = ({
   progress,
-  pill,
   os,
   ready,
-  downloadFailed = false,
+  downloadFailed,
+  download,
+  onRetry,
   onBack,
   onContinue,
 }) => {
@@ -291,12 +387,14 @@ export const Demo: React.FC<DemoProps> = ({
   const { languages, script, preview } = useOnboardingStore();
   const binding = getSetting("bindings")?.transcribe;
   const shortcut = binding?.current_binding ?? "";
-  const threshold = getSetting("hold_threshold_ms") ?? 300;
-  const [still] = useState(reducedMotion);
+  const [still] = useState(prefersReducedMotion);
 
   const [chapter, setChapter] = useState<Mode>("hold");
-  const [wayKey, setWayKey] = useState(0);
-  const [hand, setHand] = useState<Hand>("rest");
+  const [phrase, setPhrase] = useState<Phrase>(0);
+  const [pointer, setPointer] = useState<Pointer>("rest");
+  const [clickKey, setClickKey] = useState(0);
+  const [focused, setFocused] = useState(false);
+  const [keyDown, setKeyDown] = useState(false);
   const [pillState, setPillState] = useState<PillState>("hidden");
   const [text, setText] = useState({
     value: "",
@@ -304,15 +402,10 @@ export const Demo: React.FC<DemoProps> = ({
     landed: false,
     key: 0,
   });
-  const [done, setDone] = useState({ hold: false, tap: false });
 
   // The engine's own bookkeeping, outside React's renders.
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const nextMode = useRef<Mode>("hold");
-  const user = useRef<null | "down" | "holding" | "toggled" | "down2" | "work">(
-    null,
-  );
-  const suspended = useRef(false);
 
   const clear = () => {
     timers.current.forEach(clearTimeout);
@@ -321,26 +414,34 @@ export const Demo: React.FC<DemoProps> = ({
   const later = (fn: () => void, ms: number) =>
     timers.current.push(setTimeout(fn, ms));
 
-  const showChapter = (mode: Mode) => {
-    setChapter(mode);
-    setWayKey((k) => k + 1);
-  };
-
   const apply = useCallback(
     (mode: Mode, beat: Beat, animate = true) => {
       if (beat === "reset") {
-        showChapter(mode);
+        setChapter(mode);
+        setPhrase(0);
         setText((x) => ({ ...x, value: "", landed: false }));
         setPillState("hidden");
-        setHand("rest");
+        setKeyDown(false);
+        setPointer("rest");
+        setFocused(false);
+      } else if (beat === "point") {
+        setPointer("field");
+      } else if (beat === "click") {
+        setPointer("field");
+        setFocused(true);
+        if (animate) setClickKey((k) => k + 1);
       } else if (beat === "press") {
-        setHand("down");
+        setKeyDown(true);
+        // Hide while listening; the still frame keeps it to show the click.
+        setPointer(animate ? "gone" : "field");
         setPillState((p) => (p === "hidden" ? "rec" : p));
+        setPhrase(1);
       } else if (beat === "lift") {
-        setHand("rest");
+        setKeyDown(false);
       } else if (beat === "release") {
-        setHand("rest");
+        setKeyDown(false);
         setPillState("work");
+        setPhrase(2);
       } else {
         const line = demoLine(languages, script, mode);
         setPillState("hidden");
@@ -355,22 +456,22 @@ export const Demo: React.FC<DemoProps> = ({
     [languages, script],
   );
 
-  const play = useCallback(() => {
-    clear();
-    user.current = null;
-    const mode = nextMode.current;
-    nextMode.current = mode === "hold" ? "tap" : "hold";
-    const { script: beats, ms, still: at } = CHAPTERS[mode];
-    if (still) {
-      // Still frames: each way's picture, in turn.
-      for (const [time, beat] of beats)
-        if (time <= at) apply(mode, beat, false);
-      later(play, 5000);
-      return;
-    }
-    for (const [time, beat] of beats) later(() => apply(mode, beat), time);
-    later(play, ms);
-  }, [apply, still]);
+  const play = useCallback(
+    (mode: Mode = nextMode.current) => {
+      clear();
+      nextMode.current = mode === "hold" ? "tap" : "hold";
+      const { script: beats, ms, still: at } = CHAPTERS[mode];
+      if (still) {
+        for (const [time, beat] of beats)
+          if (time <= at) apply(mode, beat, false);
+        later(() => play(), STILL_MS);
+        return;
+      }
+      for (const [time, beat] of beats) later(() => apply(mode, beat), time);
+      later(() => play(), ms);
+    },
+    [apply, still],
+  );
 
   useEffect(() => {
     nextMode.current = "hold";
@@ -379,217 +480,120 @@ export const Demo: React.FC<DemoProps> = ({
     // The loop starts once; it reschedules itself.
   }, []);
 
-  /* ---------- their own keys ---------- */
+  /* ---------- changing the shortcut ---------- */
 
-  const finish = (mode: Mode, ticked = true) => {
-    clear();
-    setHand("rest");
-    setPillState("work");
-    user.current = "work";
-    later(() => {
-      apply(mode, "land");
-      if (ticked) setDone((d) => ({ ...d, [mode]: true }));
-      showChapter(mode);
-      user.current = null;
-      // then show them the other way
-      nextMode.current = mode === "hold" ? "tap" : "hold";
-      later(play, 3600);
-    }, 600);
-  };
+  // Normally on since Permissions; this is for when that screen was skipped
+  // (Windows and Linux, mostly), so Change has shortcuts to change.
+  useEffect(() => {
+    if (!preview) commands.initializeShortcuts().catch(console.error);
+  }, [preview]);
 
-  const onDown = () => {
-    if (suspended.current || user.current === "work") return;
-    if (!user.current) {
-      clear();
-      setText((x) => ({ ...x, value: "", landed: false }));
-      setHand("down");
-      setPillState("rec");
-      user.current = "down";
-      // Still down at the threshold: it's a hold.
-      later(() => {
-        if (user.current === "down") {
-          user.current = "holding";
-          showChapter("hold");
-        }
-      }, threshold);
-    } else if (user.current === "toggled") {
-      clear();
-      setHand("down");
-      user.current = "down2";
-    }
-  };
-
-  const onUp = (kind: PressKind) => {
-    if (suspended.current || !user.current) return;
-    if (user.current === "down2") return finish("tap");
-    if (user.current !== "down" && user.current !== "holding") return;
-    if (kind === "hold") return finish("hold");
-    // A tap: the hand goes back to rest and it keeps listening until the
-    // next tap.
-    clear();
-    setHand("rest");
-    showChapter("tap");
-    user.current = "toggled";
-    later(
-      () => user.current === "toggled" && finish("tap", false),
-      TAP_TIMEOUT_MS,
-    );
-  };
-
-  /* ---------- the shortcut: suspended globally, heard here ---------- */
-
-  const suspendBindings = useSuspendedShortcuts(!preview);
-
-  const capture = useShortcutCapture(
-    "transcribe",
-    os,
-    () => {
-      suspended.current = false;
-      suspendBindings();
-      play();
-    },
-    preview,
-  );
-
-  useShortcutPress(
-    shortcut,
-    os,
-    threshold,
-    { onDown, onUp },
-    !capture.capturing,
-  );
+  // The loop stops while new keys go in, and starts over after.
+  const capture = useShortcutCapture("transcribe", os, {
+    onDone: () => play("hold"),
+    inert: preview,
+    escapeCancels: true,
+  });
 
   const startCapture = () => {
-    suspended.current = true;
     clear();
-    user.current = null;
     apply(chapter, "reset");
-    capture.start();
+    capture.start().then((began) => began || play(chapter));
   };
 
-  const [what, then] =
-    chapter === "hold"
-      ? [t("onboarding.demo.hold.what"), t("onboarding.demo.hold.then")]
-      : [t("onboarding.demo.tap.what"), t("onboarding.demo.tap.then")];
-
-  // Resting, the fingertips sit just under the key; pressed, they meet its
-  // bottom edge as the key drops its 3px. The hand rides inside the key, so
-  // it moves on the key's own timing.
-  const handClass =
-    hand === "down" ? "-translate-y-[2px]" : "translate-y-[7px]";
+  const say = capture.capturing ? t(captureHintKey(capture.partial)) : null;
 
   return (
     <OnboardingShell
       progress={progress}
-      pill={pill}
       onBack={onBack}
-      hint={
-        ready
-          ? ""
-          : t(
-              downloadFailed
-                ? "onboarding.demo.hintFailed"
-                : "onboarding.demo.hint",
-            )
-      }
+      hint={download}
       primary={
-        <Button
-          variant="primary"
-          size="lg"
-          disabled={!ready}
-          onClick={onContinue}
-        >
-          {t("onboarding.demo.tryIt")}
-        </Button>
+        downloadFailed ? (
+          <Button variant="primary" size="lg" onClick={onRetry}>
+            {t("onboarding.download.retryDownload")}
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            size="lg"
+            disabled={!ready}
+            onClick={onContinue}
+          >
+            {t("onboarding.demo.tryIt")}
+          </Button>
+        )
       }
     >
-      <ScreenMain>
-        <ScreenTitle>{t("onboarding.demo.title")}</ScreenTitle>
-        <ScreenSub key={wayKey} className="demo-way-in min-h-[22px]">
-          <span aria-live="polite">
-            {done[chapter] && (
-              <span
-                aria-hidden="true"
-                className="me-[7px] inline-grid size-[16px] place-items-center rounded-full bg-moss align-[-2px] after:-mt-[2px] after:h-[4px] after:w-[8px] after:-rotate-45 after:border-b-2 after:border-s-2 after:border-background after:content-['']"
+      <ScreenMain
+        header={
+          <ScreenHeader
+            title={t("onboarding.demo.title")}
+            sub={<DemoSentence mode={chapter} phrase={phrase} say={say} />}
+            // 8px, not 4: the bold lead-in would read as the title's next line.
+            subClassName="mt-[8px]! grid items-center justify-items-center"
+          />
+        }
+      >
+        <DemoLaptop
+          os={os}
+          shortcut={shortcut}
+          keyDown={keyDown}
+          mode={chapter}
+          text={text.value}
+          landed={text.landed}
+          landKey={text.key}
+          lang={text.lang}
+          pill={pillState}
+          still={still}
+          dimmed={capture.capturing}
+          pointer={pointer}
+          clickKey={clickKey}
+          focused={focused}
+        />
+        {/* The shortcut and Change as one button; capture happens in place. */}
+        <button
+          type="button"
+          // Named by what it shows: "Your shortcut is ⌥ Space, Change".
+          onClick={(e) => {
+            if (e.detail) e.currentTarget.blur();
+            if (capture.capturing) capture.cancel();
+            else startCapture();
+          }}
+          {...spaceDoesNotClick}
+          // Shrink-wrapped, the two 1fr sides size to the wider of the two,
+          // so the keys sit on the laptop's centre in any language.
+          className="group/keycaps mt-[26px] inline-grid cursor-pointer grid-cols-[1fr_auto_1fr] items-center gap-[14px] text-small focus-visible:outline-none"
+        >
+          <span className="justify-self-end whitespace-nowrap text-ink-3">
+            {t("onboarding.demo.yourShortcut")}
+          </span>
+          {/* The resting keys hold the cell's width while new ones go in,
+              so nothing beside them moves. */}
+          <span className="grid rounded-[9px] ring-offset-[6px] ring-offset-background group-focus-visible/keycaps:ring-2 group-focus-visible/keycaps:ring-logo-primary">
+            <Keycaps
+              binding={shortcut}
+              osType={os}
+              lift
+              className={`col-start-1 row-start-1 justify-self-center ${capture.capturing ? "invisible" : ""}`}
+            />
+            {capture.capturing && (
+              <CapturedKeys
+                partial={capture.partial}
+                osType={os}
+                className="col-start-1 row-start-1"
+                keysClassName="justify-self-center"
               />
             )}
-            <strong className="font-medium text-text">{what}</strong> {then}
           </span>
-        </ScreenSub>
-        <ScreenGap />
-        <div className="flex w-full flex-col items-center">
-          <DemoScreen
-            os={os}
-            app={t(
-              chapter === "hold"
-                ? "onboarding.demo.apps.messages"
-                : "onboarding.demo.apps.mail",
+          <span className="justify-self-start whitespace-nowrap text-ink-2 underline decoration-line underline-offset-[3px] transition-colors group-hover/keycaps:text-text group-hover/keycaps:decoration-current">
+            {t(
+              capture.capturing
+                ? "onboarding.demo.cancel"
+                : "onboarding.demo.change",
             )}
-            text={text.value}
-            landed={text.landed}
-            landKey={text.key}
-            lang={text.lang}
-            pill={pillState}
-            still={still}
-            label={t("onboarding.demo.screenLabel")}
-          />
-          <p className="mt-[18px] mb-0 flex items-center justify-center gap-[10px] whitespace-nowrap text-ink-2">
-            <span>{t("onboarding.demo.yourShortcut")}</span>
-            {capture.capturing ? (
-              <>
-                <Keycaps
-                  binding={capture.partial || shortcut}
-                  osType={os}
-                  size="demo"
-                  partial
-                  className="-translate-y-[2px]"
-                />
-                <span className="inline-flex items-center gap-[14px] font-ui text-small font-medium">
-                  <span role="status" className="font-semibold text-text">
-                    {t("onboarding.demo.pressKeys")}
-                  </span>
-                  <TextLink onClick={capture.cancel}>
-                    {t("onboarding.demo.cancel")}
-                  </TextLink>
-                </span>
-              </>
-            ) : (
-              // The keys are the way to change them: they lift on hover, as
-              // if you could pull them off and put others on.
-              <button
-                type="button"
-                onClick={startCapture}
-                // The shortcut may use Space; pressing it here mustn't click.
-                onKeyDown={(e) => e.key === " " && e.preventDefault()}
-                onKeyUp={(e) => e.key === " " && e.preventDefault()}
-                className="group/keycaps -my-[6px] -ms-[6px] inline-flex cursor-pointer items-center gap-[10px] rounded-control p-[6px] text-ink-2 transition-colors hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-logo-primary"
-              >
-                <Keycaps
-                  binding={shortcut}
-                  osType={os}
-                  size="demo"
-                  pressed={hand === "down"}
-                  lift
-                  className="-translate-y-[2px]"
-                  lastKeyChildren={
-                    <span
-                      aria-hidden="true"
-                      className={`pointer-events-none absolute start-1/2 top-full z-[2] -ms-[13px] text-plum transition-transform duration-[70ms] ease-out ${handClass}`}
-                    >
-                      <HandyHand width={26} height={28} tone="current" />
-                    </span>
-                  }
-                />
-                <span className="inline-flex items-center gap-[5px] font-ui text-small font-medium">
-                  <Pencil size={13} strokeWidth={2} aria-hidden="true" />
-                  <span className="underline decoration-line-strong underline-offset-[3px] group-hover/keycaps:decoration-current">
-                    {t("onboarding.demo.change")}
-                  </span>
-                </span>
-              </button>
-            )}
-          </p>
-        </div>
+          </span>
+        </button>
       </ScreenMain>
     </OnboardingShell>
   );

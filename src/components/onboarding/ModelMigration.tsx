@@ -15,21 +15,16 @@ import { TextLink } from "../ui/TextLink";
 import { DoneMark } from "../shared/DoneMark";
 import { ProgressRing } from "../shared/ProgressRing";
 import { Tag } from "../shared/Tag";
-import {
-  OnboardingShell,
-  ScreenGap,
-  ScreenMain,
-  ScreenSub,
-  ScreenTitle,
-} from "./OnboardingShell";
+import { OnboardingShell, ScreenHeader, ScreenMain } from "./OnboardingShell";
+import { useDownloadWords } from "./DownloadStatus";
 import { useModelStore } from "../../stores/modelStore";
-import { formatModelSize } from "../../lib/utils/format";
+import { BYTES_PER_MB, formatModelSize } from "../../lib/utils/format";
 import { commands } from "@/bindings";
 import {
   deleteRetiredModel,
   findReplacement,
   type ModelMigrationPair,
-} from "./retiredModels";
+} from "@/lib/models/retired";
 
 interface ModelMigrationProps {
   onComplete: () => void;
@@ -48,7 +43,8 @@ const ModelMigration: React.FC<ModelMigrationProps> = ({
   onChooseAnother,
   inUseModelId,
 }) => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const words = useDownloadWords();
   const {
     models,
     loading,
@@ -158,9 +154,7 @@ const ModelMigration: React.FC<ModelMigrationProps> = ({
     !outcomes[target.retired.id] &&
     isReplacementReady(target);
 
-  // Combined speed and time remaining across the parallel downloads. Until
-  // every active row has a measured rate, its remaining bytes would count
-  // with no speed behind them, so no estimate is shown.
+  // Combined speed and ETA; none until every active download has a measured rate.
   let rate = 0;
   let remainingBytes = 0;
   let measured = true;
@@ -173,23 +167,11 @@ const ModelMigration: React.FC<ModelMigrationProps> = ({
     remainingBytes +=
       progress && progress.total > 0
         ? progress.total - progress.downloaded
-        : Number(p.replacement.size_mb) * 1024 * 1024 * (1 - state / 100);
+        : Number(p.replacement.size_mb) * BYTES_PER_MB * (1 - state / 100);
   }
-  const secondsLeft = measured && rate > 0 ? remainingBytes / rate : 0;
-  // Unit formatting is localized by the browser ("3 min", "3 Min."), so only
-  // the "remaining" wrapper needs translating.
-  const timeLeft =
-    secondsLeft > 0
-      ? new Intl.NumberFormat(i18n.language, {
-          style: "unit",
-          unit: secondsLeft < 60 ? "second" : "minute",
-          unitDisplay: "short",
-        }).format(
-          secondsLeft < 60
-            ? Math.ceil(secondsLeft)
-            : Math.ceil(secondsLeft / 60),
-        )
-      : null;
+  const timeLeft = words.time(
+    measured && rate > 0 && remainingBytes > 0 ? remainingBytes / rate : null,
+  );
 
   const setOutcome = (retiredId: string, outcome?: Outcome) =>
     setOutcomes((prev) => ({ ...prev, [retiredId]: outcome }));
@@ -306,16 +288,10 @@ const ModelMigration: React.FC<ModelMigrationProps> = ({
         t("modelSelector.loading", { modelName: target.replacement.name })}
       {timeLeft && (
         <span className="tabular-nums">
-          {t("onboarding.migration.timeRemaining", { time: timeLeft })}
+          {t("onboarding.download.timeLeft", { time: timeLeft })}
         </span>
       )}
-      {rate > 0 && (
-        <span className="tabular-nums">
-          {t("modelSelector.downloadSpeed", {
-            speed: (rate / (1024 * 1024)).toFixed(1),
-          })}
-        </span>
-      )}
+      {rate > 0 && <span className="tabular-nums">{words.speed(rate)}</span>}
     </span>
   ) : undefined;
 
@@ -331,10 +307,15 @@ const ModelMigration: React.FC<ModelMigrationProps> = ({
       hint={hint}
       primary={primary}
     >
-      <ScreenMain>
-        <ScreenTitle>{t("onboarding.migration.title")}</ScreenTitle>
-        <ScreenSub>{t("onboarding.migration.description")}</ScreenSub>
-        <ScreenGap />
+      <ScreenMain
+        layout="top"
+        header={
+          <ScreenHeader
+            title={t("onboarding.migration.title")}
+            sub={t("onboarding.migration.description")}
+          />
+        }
+      >
         <ul className="mb-0 flex min-h-0 w-full flex-col overflow-y-auto rounded-panel border-[1.5px] border-line-strong px-[22px] py-[4px] text-start">
           {rows.map((pair) => (
             <MigrationRow

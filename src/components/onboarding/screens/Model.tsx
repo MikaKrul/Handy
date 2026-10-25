@@ -1,27 +1,42 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../ui/Button";
 import { Radio } from "../../ui/Radio";
 import { GradeChip } from "../../shared/GradeChip";
+import { Tooltip } from "../../ui/Tooltip";
+import { ProgressLine } from "../../shared/ProgressLine";
 import { SpeedBars, speedLevel } from "../../shared/SpeedBars";
 import { Tag } from "../../shared/Tag";
+import {
+  Codes,
+  GradeTip,
+  SpeedTip,
+  Values,
+  useSpeedWords,
+} from "../../shared/modelTable/columns";
+import type { TableModel } from "../../shared/modelTable/context";
+import { toTableModel } from "../../shared/modelTable/tableModel";
+import {
+  CAPABILITIES,
+  CAPABILITY_KEYS,
+  type Capability,
+} from "../../shared/modelTable/capabilities";
+import {
+  ModelTable,
+  NO_FILTERS,
+  useModelFilters,
+  type TableSection,
+} from "../../shared/modelTable/ModelTable";
+import {
+  ModelTableRow,
+  ROLE_KEYS as PICK_ROLE_KEYS,
+} from "../../shared/modelTable/ModelTableRow";
 import { formatModelSize } from "@/lib/utils/format";
-import {
-  OnboardingShell,
-  ScreenGap,
-  ScreenMain,
-  ScreenSub,
-  ScreenTitle,
-} from "../OnboardingShell";
+import { OnboardingShell, ScreenHeader, ScreenMain } from "../OnboardingShell";
 import { useOnboardingStore } from "../onboardingStore";
+import { useDownloadWords } from "../DownloadStatus";
 import { languageName } from "@/lib/constants/languages";
-import {
-  gradeFor,
-  gradeForError,
-  type CatalogModel,
-  type ModelRow,
-  type PickRole,
-} from "../data/models";
+import type { CatalogModel, ModelRow, PickRole } from "@/lib/models/catalog";
 import type { useOnboardingModels } from "../useOnboardingModels";
 import { moveModels } from "./modelTransitions";
 import "./modelTransitions.css";
@@ -30,35 +45,19 @@ type Models = ReturnType<typeof useOnboardingModels>;
 
 /** A card's words for each pick: the Full card's line and the short ones. */
 const ROLE_KEYS: Record<PickRole | "extra", string> = {
-  pick: "recommended",
-  faster: "faster",
-  accurate: "accurate",
+  ...PICK_ROLE_KEYS,
   extra: "fromAll",
 };
 
-const Chevron: React.FC<{ dir?: "down" | "up" }> = ({ dir = "down" }) => (
+/** A printable key with no shortcut modifier, Space aside. */
+const isTyping = (e: KeyboardEvent) =>
+  e.key.length === 1 && e.key !== " " && !e.metaKey && !e.ctrlKey && !e.altKey;
+
+const Chevron = () => (
   <span
     aria-hidden="true"
-    className={`inline-block size-[6px] shrink-0 border-e-[1.5px] border-b-[1.5px] border-current ${
-      dir === "down" ? "-mt-[3px] rotate-45" : "mt-[3px] -rotate-[135deg]"
-    }`}
+    className="inline-block size-[6px] shrink-0 border-e-[1.5px] border-b-[1.5px] border-current -mt-[3px] rotate-45"
   />
-);
-
-const SearchIcon = () => (
-  <svg
-    width="15"
-    height="15"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    aria-hidden="true"
-  >
-    <circle cx="11" cy="11" r="7" />
-    <path d="M20 20l-3.5-3.5" />
-  </svg>
 );
 
 /** The view-transition name of a model's part, the same in every state. */
@@ -70,43 +69,38 @@ const vt = (id: string, part = "") => ({
 interface ModelProps {
   progress?: { index: number; count: number };
   models: Models;
-  pill?: React.ReactNode;
   onBack?: () => void;
   /** The picked model (catalog id), once Download or Continue is pressed. */
   onChoose: (modelId: string) => void;
 }
 
-/**
- * Screen 3: a speech model for your languages and this computer. Three picks
- * (Recommended, Faster, More accurate), the selected one as the Full card;
- * Show all opens every model in place as a table with search.
- */
+/** Screen 3: pick one of three suggested models, or Show all for the table. */
 export const Model: React.FC<ModelProps> = ({
   progress,
   models,
-  pill,
   onBack,
   onChoose,
 }) => {
   const { t, i18n } = useTranslation();
-  const { languages, modelId, extraModelId, downloadId, set } =
-    useOnboardingStore();
+  const words = useDownloadWords();
+  const speedWords = useSpeedWords();
+  const { modelId, extraModelId, downloadId, set } = useOnboardingStore();
   const [showAll, setShowAll] = useState(false);
-  const [query, setQuery] = useState("");
+  const { filters, setFilters, matches } = useModelFilters();
   const rootRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
-  const focusSearch = useRef(false);
 
-  const langs = languages.length ? languages : ["en"];
+  const { picks, groups, offered, grading } = models;
+  const langs = grading.langs;
   const dense = langs.length > 5;
-  const { picks, groups, offered } = models;
+  // Shown regardless of settings: they're capabilities, as on the Models page.
+  const has = (m: CatalogModel, c: Capability) =>
+    m.capabilities[CAPABILITIES[c].flag];
+  const previews = (m: CatalogModel) => has(m, "preview");
   const pick = picks.find((p) => p.role === "pick") ?? picks[0];
   const selectedId = modelId ?? downloadId ?? pick?.model.id ?? null;
   const isPick = (id: string | null) =>
     !!id && picks.some((p) => p.model.id === id);
-  // A model picked from the full list stays on Model as the fourth item,
-  // unless it's one of the picks now (new languages, or picked before).
+  // A model picked from the full list stays as a fourth card unless a pick.
   const extraId =
     selectedId && !isPick(selectedId)
       ? selectedId
@@ -127,39 +121,58 @@ export const Model: React.FC<ModelProps> = ({
   const nameOf = (code: string) => languageName(code, ui);
   const sizeOf = (m: CatalogModel) =>
     formatModelSize(models.infoFor(m)?.size_mb);
-  // In a column, an unknown size is a dash: "Unknown size" won't fit.
-  const sizeCell = (m: CatalogModel) =>
-    (models.infoFor(m)?.size_mb ?? 0) > 0 ? sizeOf(m) : "—";
-  // Only a word, no seconds: the wait is a benchmark from machines like this
-  // one, not measured on it, so a number would promise more than we know.
-  const speedText = (wait: number | undefined) =>
-    wait == null
-      ? t("onboarding.model.speedUntested")
-      : t(`onboarding.model.speedWords.${speedLevel(wait)}`);
+  /** The offered models as the table shows them, by catalog id like the picks. */
+  const entriesFor = (rows: ModelRow[]): TableModel[] =>
+    rows.flatMap((row) => {
+      const info = models.infoFor(row.model);
+      return info ? [{ ...toTableModel(info, t), id: row.model.id }] : [];
+    });
 
-  const move = (kind: "grow" | "shrink" | "pick", update: () => void) =>
-    moveModels(rootRef.current, kind, update);
+  const capabilityName = (c: Capability) => t(`modelTable.tags.${c}`);
+  const capabilityLine = (c: Capability) => t(`modelTable.tags.${c}Title`);
+
+  /** A capability's tag on a card: its icon and word. */
+  const capabilityTag = (m: CatalogModel, c: Capability) => {
+    const { Icon } = CAPABILITIES[c];
+    return (
+      has(m, c) && (
+        <Tooltip text={capabilityLine(c)}>
+          <Tag className="inline-flex items-center gap-[4px]">
+            <Icon
+              aria-hidden="true"
+              className="size-[11px]"
+              strokeWidth={2.25}
+            />
+            {capabilityName(c)}
+          </Tag>
+        </Tooltip>
+      )
+    );
+  };
+
+  /** What a model can do besides transcribe, beside its role. */
+  const capabilityTags = (m: CatalogModel) =>
+    CAPABILITY_KEYS.map((c) => (
+      <Fragment key={c}>{capabilityTag(m, c)}</Fragment>
+    ));
+
+  const move = (update: () => void) => moveModels(rootRef.current, update);
 
   const open = (initialQuery = "") =>
-    move("grow", () => {
-      focusSearch.current = true;
-      setQuery(initialQuery);
+    move(() => {
+      setFilters({ ...NO_FILTERS, query: initialQuery });
       setShowAll(true);
     });
   const close = () =>
-    move("shrink", () => {
+    move(() => {
       setShowAll(false);
-      setQuery("");
+      setFilters(NO_FILTERS);
     });
 
+  // The extra model follows from modelId (extraId above).
   const choose = (id: string, animate: boolean) => {
-    const update = () => {
-      set({
-        modelId: id,
-        ...(isPick(id) ? {} : { extraModelId: id }),
-      });
-    };
-    if (animate) move("pick", update);
+    const update = () => set({ modelId: id });
+    if (animate) move(update);
     else update();
   };
 
@@ -169,8 +182,7 @@ export const Model: React.FC<ModelProps> = ({
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
-      if (e.key.length !== 1 || e.key === " ") return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (!isTyping(e)) return;
       e.preventDefault();
       open(e.key);
     };
@@ -179,62 +191,70 @@ export const Model: React.FC<ModelProps> = ({
     // open() is stable enough for a listener re-added with showAll
   }, [showAll]);
 
-  // In the full list: Escape clears the search, then folds the list; typing
-  // anywhere goes into the search.
-  useEffect(() => {
-    if (!showAll) return;
-    if (focusSearch.current) {
-      focusSearch.current = false;
-      const input = searchRef.current;
-      input?.focus({ preventScroll: true });
-      input?.setSelectionRange(input.value.length, input.value.length);
-    }
-    const onKey = (e: KeyboardEvent) => {
-      const input = searchRef.current;
-      if (e.key === "Escape") {
-        e.preventDefault();
-        if (input?.value) setQuery("");
-        else close();
-        return;
-      }
-      if (
-        input &&
-        document.activeElement !== input &&
-        e.key.length === 1 &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.altKey
-      )
-        input.focus({ preventScroll: true });
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [showAll]);
-
-  // Coming into the full list: the selected row in view, once the list has
-  // laid out (it can take a frame or two to get its height).
-  useEffect(() => {
-    if (!showAll) return;
-    let id = 0;
-    let tries = 0;
-    const reveal = () => {
-      const list = listRef.current;
-      if (!list) return;
-      if (!list.clientHeight && tries++ < 10) {
-        id = requestAnimationFrame(reveal);
-        return;
-      }
-      const row = list.querySelector<HTMLElement>("[data-vt-row].is-on");
-      if (!row) return;
-      const bottom = row.offsetTop + row.offsetHeight + 12 - list.clientHeight;
-      if (list.scrollTop < bottom) list.scrollTop = bottom;
-    };
-    id = requestAnimationFrame(reveal);
-    return () => cancelAnimationFrame(id);
-  }, [showAll]);
-
   if (!pick || !selectedId) return null;
   const selected = byId.get(selectedId) ?? pick.model;
+
+  /* ---------------- the download ---------------- */
+
+  // The downloading model's card shows progress; a failed one, its full card.
+  const loading = downloadId ? byId.get(downloadId) : undefined;
+  const loadingState = models.downloadState(loading);
+  const lineFor = (id: string) =>
+    id === downloadId &&
+    (loadingState.state === "downloading" || loadingState.state === "checking");
+  /** The full card says so, stopped included. */
+  const showsDownload = (id: string) =>
+    lineFor(id) || (id === downloadId && loadingState.state === "failed");
+  const lineValue =
+    loadingState.state === "downloading" ? loadingState.progress : 1;
+  /** A small card's progress line. */
+  const thinLine = (place: string) => (
+    <ProgressLine
+      value={lineValue}
+      busy={loadingState.state === "checking"}
+      className={`absolute h-[3px] ${place}`}
+    />
+  );
+
+  /** The full card's line, with how far on the left and the speed on the right. */
+  const fullLine = () => {
+    const s = loadingState;
+    if (s.state === "failed")
+      return (
+        <span className="mt-[10px] text-label text-warning">
+          {t("onboarding.download.failed")}
+        </span>
+      );
+    if (s.state !== "downloading" && s.state !== "checking") return null;
+    let left: string;
+    let right: string | null = null;
+    if (s.state === "downloading") {
+      const { done, total } = words.sizes(
+        s,
+        loading && models.infoFor(loading)?.size_mb,
+      );
+      const speed = words.speed(s.bytesPerSec);
+      const time = words.time(s.etaSeconds);
+      left = t("onboarding.download.cardProgress", {
+        percent: words.percent(s),
+        done,
+        total,
+      });
+      right =
+        speed && time
+          ? t("onboarding.download.speedLeft", { speed, time })
+          : (speed ?? (time && t("onboarding.download.timeLeft", { time })));
+    } else left = t("onboarding.download.checking");
+    return (
+      <span className="mt-[10px] flex flex-col gap-[5px] self-stretch">
+        <ProgressLine value={lineValue} busy={s.state === "checking"} />
+        <span className="flex justify-between gap-[12px] text-label tabular-nums text-ink-3">
+          <span className="truncate">{left}</span>
+          {right && <span className="shrink-0">{right}</span>}
+        </span>
+      </span>
+    );
+  };
 
   /* ---------------- the pieces ---------------- */
 
@@ -244,12 +264,11 @@ export const Model: React.FC<ModelProps> = ({
     </span>
   );
 
-  const roleClass =
-    "shrink-0 text-label font-[650] uppercase tracking-[0.04em] text-ink-2";
+  const roleBase = "shrink-0 font-[650] uppercase tracking-[0.04em]";
   const sizeClass =
     "ms-auto min-w-[50px] text-end text-label text-ink-3 tabular-nums";
 
-  /** The selected model: role over the name, its line, Accuracy and Speed. */
+  /** The selected model's card. */
   const fullCard = (row: ModelRow, role: PickRole | "extra") => {
     const id = row.model.id;
     return (
@@ -260,13 +279,14 @@ export const Model: React.FC<ModelProps> = ({
         role="radio"
         aria-checked="true"
         tabIndex={0}
-        className="flex w-full min-w-0 flex-col items-stretch rounded-panel border-[1.5px] border-plum/60 bg-background px-5 py-4 text-start text-small text-text [view-transition-class:mf-row_mf-box]"
+        className="flex w-full min-w-0 flex-col items-stretch rounded-panel border-[1.5px] border-plum-pick bg-background px-5 py-4 text-start text-small text-text [view-transition-class:mf-row_mf-box]"
       >
         <span className="flex min-w-0 items-center gap-[10px] whitespace-nowrap">
           {mark(id, true)}
-          <b {...vt(id, "r")} className={roleClass}>
-            {t(`onboarding.model.roles.${ROLE_KEYS[role]}`)}
+          <b {...vt(id, "r")} className={`${roleBase} text-[16px] text-text`}>
+            {t(`modelTable.roles.${ROLE_KEYS[role]}`)}
           </b>
+          {capabilityTags(row.model)}
           <span {...vt(id, "s")} className={sizeClass}>
             {sizeOf(row.model)}
           </span>
@@ -274,99 +294,76 @@ export const Model: React.FC<ModelProps> = ({
         <span className="flex flex-col items-start">
           <span
             {...vt(id, "n")}
-            className="mt-[4px] font-display text-name font-[650] leading-[1.2] tracking-[-0.01em]"
+            className="mt-[4px] font-display text-name font-[650] leading-[1.2] tracking-[-0.01em] text-ink-2"
           >
             {row.model.name}
           </span>
-          <span {...vt(id, "d")} className="mt-[2px] text-ink-2">
-            {role === "extra"
-              ? row.model.description
-              : t(`onboarding.model.lines.${ROLE_KEYS[role]}`)}
-          </span>
+          {/* With two rows of grades, the download takes this line's room. */}
+          {!(dense && showsDownload(id)) && (
+            <span {...vt(id, "d")} className="mt-[2px] text-ink-2">
+              {role === "extra"
+                ? row.model.description
+                : t(`onboarding.model.lines.${ROLE_KEYS[role]}`)}
+            </span>
+          )}
           <span className="mt-[10px] grid grid-cols-[84px_1fr] items-center gap-x-[12px] gap-y-[8px] self-stretch">
-            <span className="text-ink-3">{t("onboarding.model.accuracy")}</span>
+            <span className="text-ink-2">{t("modelTable.accuracy")}</span>
             <span
               className={`grid gap-x-[18px] gap-y-[5px] ${dense ? "grid-cols-[repeat(4,max-content)]" : "grid-cols-[repeat(3,max-content)]"}`}
             >
               {langs.map((l) => {
-                const grade = gradeFor(row.model, l);
+                const grade = grading.grade(row.model, l);
                 return (
-                  <span
+                  <GradeTip
                     key={l}
-                    title={nameOf(l)}
-                    className="inline-flex items-center gap-[6px]"
+                    grading={grading}
+                    model={row.model}
+                    langs={[l]}
                   >
-                    <GradeChip letter={grade.letter} label={grade.label} />
-                    <small className="text-small">
-                      {dense ? l.toUpperCase() : nameOf(l)}
-                    </small>
-                  </span>
+                    <span className="inline-flex items-center gap-[6px]">
+                      <GradeChip letter={grade.letter} label={grade.label} />
+                      <small className="text-small">
+                        {dense ? l.toUpperCase() : nameOf(l)}
+                      </small>
+                    </span>
+                  </GradeTip>
                 );
               })}
             </span>
-            <span className="text-ink-3">{t("onboarding.model.speed")}</span>
-            <span className="flex flex-wrap items-center gap-x-[12px] gap-y-[5px]">
-              <SpeedBars level={speedLevel(row.wait)} />
-              {speedText(row.wait)}
-            </span>
+            <span className="text-ink-2">{t("modelTable.speed")}</span>
+            {/* Over the bars and words, not the whole column. */}
+            <SpeedTip
+              grading={grading}
+              model={row.model}
+              streaming={previews(row.model)}
+              className="justify-self-start"
+            >
+              <span className="flex flex-wrap items-center gap-x-[12px] gap-y-[5px]">
+                <SpeedBars level={speedLevel(row.wait)} />
+                {/* Plain: the Live preview tag on line 1 says it previews. */}
+                {speedWords(row.wait)}
+              </span>
+            </SpeedTip>
           </span>
         </span>
+        {showsDownload(id) && fullLine()}
       </div>
     );
   };
 
-  /**
-   * The column heads (EN … SPEED SIZE) over the values, one grid each. Many
-   * languages narrow the columns; the height stays the same.
-   */
+  /** The table's codes (EN … SPEED SIZE) over the table's values. */
   const columns = (row: ModelRow) => {
-    const cols = columnsClass(dense);
-    const style = { "--n": langs.length } as React.CSSProperties;
     const id = row.model.id;
     return (
       <span className="flex flex-col gap-[5px]">
-        <span
-          {...vt(id, "c")}
-          style={style}
-          className={`grid items-center justify-items-center uppercase ${cols}`}
-        >
-          {langs.map((l) => (
-            <span key={l} title={nameOf(l)} className={CODE_CLASS}>
-              {l.toUpperCase()}
-            </span>
-          ))}
-          <span className={CODE_CLASS}>{t("onboarding.model.speed")}</span>
-          <span className={CODE_CLASS}>{t("onboarding.model.size")}</span>
-        </span>
-        <span
-          {...vt(id, "g")}
-          style={style}
-          className={`grid items-center justify-items-center ${cols}`}
-        >
-          {langs.map((l) => {
-            const grade = gradeFor(row.model, l);
-            return (
-              <GradeChip
-                key={l}
-                letter={grade.letter}
-                label={grade.label}
-                dense={dense}
-              />
-            );
-          })}
-          <span
-            title={speedText(row.wait)}
-            className={`inline-grid h-[22px] place-items-center ${dense ? "w-[36px]" : "w-[40px]"}`}
-          >
-            <SpeedBars level={speedLevel(row.wait)} className="h-[12px]!" />
-          </span>
-          <span
-            {...vt(id, "s")}
-            className="whitespace-nowrap text-label text-ink-3 tabular-nums"
-          >
-            {sizeCell(row.model)}
-          </span>
-        </span>
+        <Codes langs={langs} vt={(part) => vt(id, part)} />
+        <Values
+          grading={grading}
+          model={row.model}
+          streaming={previews(row.model)}
+          sizeMb={Number(models.infoFor(row.model)?.size_mb ?? 0)}
+          vt={(part) => vt(id, part)}
+        />
       </span>
     );
   };
@@ -375,6 +372,7 @@ export const Model: React.FC<ModelProps> = ({
   const card = (row: ModelRow, role: PickRole) => {
     const id = row.model.id;
     const dim = row.missing.length > 0;
+    const line = lineFor(id);
     return (
       <button
         key={id}
@@ -384,19 +382,20 @@ export const Model: React.FC<ModelProps> = ({
         {...vt(id)}
         data-vt-row=""
         onClick={() => choose(id, true)}
-        className="grid w-full min-w-0 cursor-pointer grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-x-[10px] rounded-card border-[1.5px] border-line bg-background px-5 py-[8px] text-start text-small leading-[1.5] text-text hover:border-plum-hover hover:bg-wash [view-transition-class:mf-row_mf-box]"
+        className={`relative grid w-full min-w-0 cursor-pointer grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-x-[10px] rounded-card border-[1.5px] border-line bg-background px-5 text-start text-small leading-[1.5] text-text hover:border-ink-3 hover:bg-wash [view-transition-class:mf-row_mf-box] ${line ? "pt-[8px] pb-[15px]" : "py-[8px]"}`}
       >
         {mark(id, false)}
         <span className="flex min-w-0 flex-col items-start">
           <span className="flex min-w-0 max-w-full items-baseline gap-[8px] whitespace-nowrap">
-            <b {...vt(id, "r")} className={roleClass}>
-              {t(`onboarding.model.roles.${ROLE_KEYS[role]}`)}
+            <b {...vt(id, "r")} className={`${roleBase} text-label text-text`}>
+              {t(`modelTable.roles.${ROLE_KEYS[role]}`)}
             </b>
+            {capabilityTags(row.model)}
           </span>
           <span className="flex min-w-0 max-w-full items-baseline gap-[8px] whitespace-nowrap">
             <span
               {...vt(id, "n")}
-              className={`min-w-0 shrink overflow-hidden text-ellipsis text-small font-semibold text-text ${dim ? "opacity-60" : ""}`}
+              className={`min-w-0 shrink overflow-hidden text-ellipsis text-small font-semibold text-ink-2 ${dim ? "opacity-60" : ""}`}
             >
               {row.model.name}
             </span>
@@ -411,6 +410,7 @@ export const Model: React.FC<ModelProps> = ({
           </span>
         </span>
         {columns(row)}
+        {line && thinLine("inset-x-5 bottom-[6px]")}
       </button>
     );
   };
@@ -418,12 +418,8 @@ export const Model: React.FC<ModelProps> = ({
   /** One line: role, few words (or the name), one grade, speed and size. */
   const oneLine = (row: ModelRow, role: PickRole | "extra") => {
     const id = row.model.id;
-    const overall =
-      row.error != null
-        ? gradeForError(row.error)
-        : row.missing.length
-          ? ({ letter: "none", label: "—" } as const)
-          : ({ letter: "none", label: "?" } as const);
+    const line = lineFor(id);
+    const overall = grading.overall(row.model);
     return (
       <button
         key={id}
@@ -433,12 +429,13 @@ export const Model: React.FC<ModelProps> = ({
         {...vt(id)}
         data-vt-row=""
         onClick={() => choose(id, true)}
-        className="flex w-full min-w-0 cursor-pointer items-center gap-[10px] whitespace-nowrap rounded-card border-[1.5px] border-line bg-background px-5 py-[8px] text-start text-small text-text hover:border-plum-hover hover:bg-wash [view-transition-class:mf-row_mf-box]"
+        className={`relative flex w-full min-w-0 cursor-pointer items-center gap-[10px] whitespace-nowrap rounded-card border-[1.5px] border-line bg-background px-5 text-start text-small text-text hover:border-ink-3 hover:bg-wash [view-transition-class:mf-row_mf-box] ${line ? "pt-[8px] pb-[15px]" : "py-[8px]"}`}
       >
         {mark(id, false)}
-        <b {...vt(id, "r")} className={roleClass}>
-          {t(`onboarding.model.roles.${ROLE_KEYS[role]}`)}
+        <b {...vt(id, "r")} className={`${roleBase} text-label text-text`}>
+          {t(`modelTable.roles.${ROLE_KEYS[role]}`)}
         </b>
+        {capabilityTags(row.model)}
         <span
           {...vt(id, "d")}
           className={`min-w-0 flex-[1_1_0] overflow-hidden text-ellipsis text-ink-3 ${row.missing.length ? "opacity-60" : ""}`}
@@ -449,19 +446,26 @@ export const Model: React.FC<ModelProps> = ({
         </span>
         <span className="ms-auto flex shrink-0 items-center gap-[10px]">
           <span {...vt(id, "g")} className="flex items-center gap-[10px]">
-            <GradeChip
-              letter={overall.letter}
-              label={overall.label}
-              title={langs
-                .map((l) => `${nameOf(l)} ${gradeFor(row.model, l).label}`)
-                .join(" · ")}
-            />
-            <SpeedBars level={speedLevel(row.wait)} />
+            <GradeTip grading={grading} model={row.model} langs={langs}>
+              <span className="inline-grid">
+                <GradeChip letter={overall.letter} label={overall.label} />
+              </span>
+            </GradeTip>
+            <SpeedTip
+              grading={grading}
+              model={row.model}
+              streaming={previews(row.model)}
+            >
+              <span className="inline-grid">
+                <SpeedBars level={speedLevel(row.wait)} />
+              </span>
+            </SpeedTip>
           </span>
           <span {...vt(id, "s")} className={`${sizeClass} ms-0`}>
             {sizeOf(row.model)}
           </span>
         </span>
+        {line && thinLine("inset-x-5 bottom-[6px]")}
       </button>
     );
   };
@@ -474,20 +478,40 @@ export const Model: React.FC<ModelProps> = ({
   const continuing =
     selectedState === "ready" ||
     (downloadId === selectedId && selectedState !== "failed");
+  // Switching mid-download pauses it (the partial stays on disk), so no dialog.
+  const switching =
+    loading && loading.id !== selectedId && loadingState.state === "downloading"
+      ? { name: loading.name, percent: words.percent(loadingState) }
+      : null;
   const primary = (
     <Button variant="primary" size="lg" onClick={() => onChoose(selectedId)}>
       {continuing
         ? t("onboarding.shell.continue")
-        : t("onboarding.model.download", { size: sizeOf(selected) })}
+        : t(
+            switching
+              ? "onboarding.model.downloadInstead"
+              : "onboarding.model.download",
+            { size: sizeOf(selected) },
+          )}
     </Button>
   );
-  const hint = continuing ? "" : t("onboarding.model.hint");
-
-  const title = (
-    <ScreenTitle>
-      <span data-vt="mf-title">{t("onboarding.model.title")}</span>
-    </ScreenTitle>
+  const hint = switching ? (
+    <div className="text-start leading-[1.35]">
+      <div className="truncate font-medium text-text">
+        {t("onboarding.model.pauses", switching)}
+      </div>
+      <div className="truncate text-label">
+        {t("onboarding.model.resumeLater")}
+      </div>
+    </div>
+  ) : continuing ? (
+    ""
+  ) : (
+    t("onboarding.model.hint")
   );
+
+  const title = <span data-vt="mf-title">{t("onboarding.model.title")}</span>;
+  const sub = <span data-vt="mf-sub">{t("onboarding.model.subtitle")}</span>;
 
   /* ---------------- the picks ---------------- */
 
@@ -508,15 +532,16 @@ export const Model: React.FC<ModelProps> = ({
     return (
       <OnboardingShell
         progress={progress}
-        pill={pill}
         onBack={onBack}
         hint={hint}
         primary={primary}
       >
-        <ScreenMain ref={rootRef} data-model-root="" align="stretch">
-          {title}
-          <ScreenSub>{t("onboarding.model.subtitle")}</ScreenSub>
-          <ScreenGap />
+        <ScreenMain
+          ref={rootRef}
+          data-model-root=""
+          align="stretch"
+          header={<ScreenHeader title={title} sub={sub} />}
+        >
           <div
             role="radiogroup"
             aria-label={t("onboarding.model.label")}
@@ -529,7 +554,7 @@ export const Model: React.FC<ModelProps> = ({
             onClick={() => open()}
             className="mt-[8px] flex h-[38px] flex-none cursor-pointer items-center gap-[8px] self-stretch rounded-card border-[1.5px] border-dashed border-line-strong px-[20px] text-start text-small font-semibold text-ink-2 hover:border-solid hover:bg-wash hover:text-text"
           >
-            {t("onboarding.model.showAll", { count: models.count })}
+            {t("onboarding.model.showAll", { count: models.offered.length })}
             <Chevron />
           </button>
         </ScreenMain>
@@ -539,228 +564,71 @@ export const Model: React.FC<ModelProps> = ({
 
   /* ---------------- every model ---------------- */
 
-  const q = query.trim().toLowerCase();
-  const matches = (row: ModelRow) =>
-    !q ||
-    q
-      .split(/\s+/)
-      .every((w) =>
-        [
-          row.model.name,
-          row.model.description,
-          ...row.model.languages.flatMap((l) => [
-            languageName(l, ui),
-            languageName(l, "en"),
-          ]),
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(w),
-      );
-  const picked = groups.picks.filter(matches);
-  const others = groups.others.filter(matches);
-  const partial = groups.partial.filter(matches);
-  const select = (id: string) => choose(id, false);
+  const kept = (rows: ModelRow[]) => entriesFor(rows).filter(matches);
+  // Picks, then the rest by value; models missing a language last.
+  const sections: TableSection[] = [
+    {
+      key: "fits",
+      label: t("onboarding.model.model"),
+      rows: [...kept(groups.picks), ...kept(groups.others)],
+    },
+    {
+      key: "partial",
+      label: t("modelTable.missingLanguage"),
+      rows: kept(groups.partial),
+    },
+  ].filter((s) => s.rows.length);
 
-  /** ↑↓ from the search box move the selection. */
-  const step = (d: number) => {
-    const rows = [
-      ...(listRef.current?.querySelectorAll<HTMLElement>("[data-vt-row]") ??
-        []),
-    ];
-    if (!rows.length) return;
-    const i = rows.findIndex((el) => el.classList.contains("is-on"));
-    const next =
-      rows[Math.max(0, Math.min(rows.length - 1, i < 0 ? 0 : i + d))];
-    next.click();
-    requestAnimationFrame(() =>
-      listRef.current
-        ?.querySelector(".is-on")
-        ?.scrollIntoView({ block: "nearest" }),
-    );
-  };
-
-  const chipCols = columnsClass(dense);
-  const chipStyle = { "--n": langs.length } as React.CSSProperties;
-
-  const tableRow = (row: ModelRow) => {
-    const id = row.model.id;
+  const tableRow = (entry: TableModel) => {
+    const id = entry.id;
     const on = id === selectedId;
-    const dim = row.missing.length > 0;
     return (
-      <button
+      <ModelTableRow
         key={id}
-        type="button"
-        role="radio"
-        aria-checked={on}
-        {...vt(id)}
-        data-vt-row=""
-        onClick={() => select(id)}
-        className={`relative grid w-full min-w-0 flex-none cursor-pointer grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-x-[10px] rounded-control px-[14px] py-[9px] text-start text-small leading-[1.5] text-text [view-transition-class:mf-row_mf-box] ${
-          on ? "is-on bg-pick-row" : "hover:bg-wash"
-        }`}
-      >
-        {mark(id, on)}
-        <span className="flex min-w-[150px] flex-col items-start">
-          <span className="flex min-w-0 max-w-full items-center gap-[8px]">
-            <b
-              {...vt(id, "n")}
-              className={`min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-[650] ${dim ? "opacity-60" : ""}`}
-            >
-              {row.model.name}
-            </b>
-            {row.role && (
-              <Tag {...vt(id, "r")} on={on}>
-                {t(`onboarding.model.roles.${ROLE_KEYS[row.role]}`)}
-              </Tag>
-            )}
-          </span>
-          <span
-            {...vt(id, "d")}
-            title={row.model.description}
-            className={`max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-ink-3 ${dim ? "opacity-60" : ""}`}
-          >
-            {row.model.description}
-          </span>
-        </span>
-        <span
-          {...vt(id, "g")}
-          style={chipStyle}
-          className={`grid items-center justify-items-center ${chipCols}`}
-        >
-          {langs.map((l) => {
-            const grade = gradeFor(row.model, l);
-            return (
-              <GradeChip
-                key={l}
-                letter={grade.letter}
-                label={grade.label}
-                dense={dense}
-              />
-            );
-          })}
-          <span
-            title={speedText(row.wait)}
-            className={`inline-grid h-[22px] place-items-center ${dense ? "w-[36px]" : "w-[40px]"}`}
-          >
-            <SpeedBars level={speedLevel(row.wait)} className="h-[12px]!" />
-          </span>
-          <span
-            {...vt(id, "s")}
-            className="whitespace-nowrap text-label text-ink-3 tabular-nums"
-          >
-            {sizeCell(row.model)}
-          </span>
-        </span>
-      </button>
+        entry={entry}
+        selected={on}
+        mark={<Radio checked={on} />}
+        download={
+          lineFor(id)
+            ? {
+                state:
+                  loadingState.state === "checking"
+                    ? "checking"
+                    : "downloading",
+                percent: lineValue * 100,
+              }
+            : null
+        }
+        onActivate={() => choose(id, false)}
+        vt={(part) => vt(id, part)}
+      />
     );
   };
-
-  const empty = !picked.length && !others.length && !partial.length;
 
   return (
     <OnboardingShell
       progress={progress}
-      pill={pill}
       onBack={close}
       hint={hint}
       primary={primary}
     >
-      <ScreenMain ref={rootRef} data-model-root="" wide align="stretch">
-        {title}
-        <div
-          data-vt="mf-tools"
-          className="mt-lead flex items-center gap-[10px] text-start"
-        >
-          <label className="relative min-w-0 flex-1">
-            <span className="pointer-events-none absolute start-[11px] top-1/2 grid -translate-y-1/2 text-ink-3">
-              <SearchIcon />
-            </span>
-            {/* Quiet on focus: the caret says where typing goes, and the
-                picked row below stays the one marked thing. */}
-            <input
-              ref={searchRef}
-              type="search"
-              value={query}
-              placeholder={t("onboarding.model.searchPlaceholder")}
-              aria-label={t("onboarding.model.searchLabel")}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                if (listRef.current) listRef.current.scrollTop = 0;
-              }}
-              onKeyDown={(e) => {
-                const d =
-                  e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
-                if (d) {
-                  e.preventDefault();
-                  step(d);
-                }
-              }}
-              className="h-[34px] w-full rounded-lg border border-line-strong bg-background ps-[33px] pe-[12px] text-small text-text outline-none placeholder:text-ink-3"
-            />
-          </label>
-        </div>
-        {!empty && (
-          // The column heads sit above the list, not in it, so nothing
-          // scrolls behind or past them: rows are cut off at the rule. The
-          // same 4px bleed and scrollbar gutter as the list keep the
-          // columns over theirs.
-          <div className="-mx-[4px] mt-[4px] flex-none overflow-y-hidden px-[4px] [scrollbar-gutter:stable] [scrollbar-width:thin]">
-            <div className="flex h-[31px] items-center justify-between border-b border-line ps-[42px] pe-[14px] uppercase">
-              <span className={CODE_CLASS}>{t("onboarding.model.model")}</span>
-              <span
-                style={chipStyle}
-                className={`grid items-center justify-items-center ${chipCols}`}
-              >
-                {langs.map((l) => (
-                  <span key={l} title={nameOf(l)} className={CODE_CLASS}>
-                    {l.toUpperCase()}
-                  </span>
-                ))}
-                <span className={CODE_CLASS}>
-                  {t("onboarding.model.speed")}
-                </span>
-                <span className={CODE_CLASS}>{t("onboarding.model.size")}</span>
-              </span>
-            </div>
-          </div>
-        )}
-        <div
-          ref={listRef}
-          role="radiogroup"
-          aria-label={t("onboarding.model.allLabel")}
-          className="model-flow-scroll relative -mx-[4px] flex min-h-0 flex-1 flex-col gap-[4px] overflow-y-auto scroll-pt-[12px] px-[4px] pt-[12px] pb-[12px] text-start [scrollbar-width:thin] [scrollbar-gutter:stable]"
-        >
-          {picked.map(tableRow)}
-          {others.map(tableRow)}
-          {/* The models that miss one of their languages come last, under
-              a note that says so; their rows are dimmed and grade "—". */}
-          {partial.length > 0 && (
-            <div className="mt-[6px] flex h-[34px] flex-none items-center border-t border-line px-[2px] text-small text-ink-3">
-              {t("onboarding.model.missingLanguages")}
-            </div>
-          )}
-          {partial.map(tableRow)}
-          {empty && (
-            <div className="px-[12px] py-[28px] text-center text-small text-ink-2">
-              {t("onboarding.model.noMatch", { query: query.trim() })}
-            </div>
-          )}
-        </div>
+      <ScreenMain
+        ref={rootRef}
+        data-model-root=""
+        layout="top"
+        align="stretch"
+        header={<ScreenHeader title={title} sub={sub} />}
+      >
+        <ModelTable
+          grading={grading}
+          filters={filters}
+          setFilters={setFilters}
+          sections={sections}
+          renderRow={tableRow}
+          onEscape={close}
+          focusOnMount
+        />
       </ScreenMain>
     </OnboardingShell>
   );
 };
-
-/**
- * The grade, speed and size columns, the same in the pick cards and the
- * table. Every column centers its head over its values; Size is as wide as
- * its widest value ("99.0 MB").
- */
-const columnsClass = (dense: boolean) =>
-  dense
-    ? "grid-cols-[repeat(var(--n),26px)_36px_48px] gap-x-[3px]"
-    : "grid-cols-[repeat(var(--n),32px)_40px_48px] gap-x-[6px]";
-
-const CODE_CLASS =
-  "text-tag font-semibold leading-[14px] tracking-[0.02em] text-ink-3";

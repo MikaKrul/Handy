@@ -1,125 +1,75 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Trans, useTranslation } from "react-i18next";
-import { ChevronDown, Globe } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../../ui/Button";
 import { Radio } from "../../ui/Radio";
 import { Mascot } from "../../shared/Mascot";
-import HandyTextLogo from "../../icons/HandyTextLogo";
-import { OnboardingShell, ScreenSub, ScreenTitle } from "../OnboardingShell";
-import { useOnboardingStore } from "../onboardingStore";
-import { CHINESE_SCRIPTS, isChinese } from "../data/languages";
-import { CURATED_ASR, isWeakLanguage } from "../data/models";
-import { modelMatchesLanguage } from "@handy-computer/models";
-import { SUPPORTED_LANGUAGES, getSupportedLanguage } from "@/i18n";
 import {
-  getLanguage,
-  languageName,
-  searchLanguages,
-} from "@/lib/constants/languages";
+  LanguageOptions,
+  LanguageSearchField,
+  useLanguagePicker,
+} from "../../shared/LanguagePicker";
+import HandyTextLogo from "../../icons/HandyTextLogo";
+import { OnboardingShell, ScreenHeader } from "../OnboardingShell";
+import { AppLanguageMenu } from "../AppLanguageMenu";
+import { useOnboardingStore } from "../onboardingStore";
+import { CHINESE_SCRIPTS, isChinese } from "@/lib/utils/languageSuggestions";
+import { CURATED_ASR, isWeakLanguage } from "@/lib/models/catalog";
+import { modelMatchesLanguage } from "@handy-computer/models";
+import { getSupportedLanguage } from "@/i18n";
+import { languageList } from "@/lib/constants/languages";
 import { useSettings } from "@/hooks/useSettings";
 
 // The mascot waves on the first visit only.
 let waved = false;
 
-const RemoveIcon = () => (
-  <svg
-    width="10"
-    height="10"
-    viewBox="0 0 10 10"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.6"
-    strokeLinecap="round"
-    aria-hidden="true"
-  >
-    <path d="M2 2l6 6M8 2L2 8" />
-  </svg>
-);
-
 interface WelcomeProps {
   progress: { index: number; count: number };
-  /** Changing the menu language writes the setting (not in a preview). */
-  preview: boolean;
   onContinue: () => void;
 }
 
-/**
- * Screen 1: the greeting, the languages you speak, and which Chinese
- * characters Handy writes when you speak Chinese or Cantonese.
- */
-export const Welcome: React.FC<WelcomeProps> = ({
-  progress,
-  preview,
-  onContinue,
-}) => {
+/** Screen 1: greeting, spoken languages, and Chinese script. */
+export const Welcome: React.FC<WelcomeProps> = ({ progress, onContinue }) => {
   const { t, i18n } = useTranslation();
   const { updateSetting } = useSettings();
-  const { languages, script, modelId, set } = useOnboardingStore();
-  const [query, setQuery] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const { languages, script, modelId, preview, set } = useOnboardingStore();
+  const picker = useLanguagePicker({
+    languages,
+    onChange: (next) => {
+      // A model picked for other languages no longer counts as the pick.
+      const picked = CURATED_ASR.find((m) => m.id === modelId);
+      const stillFits =
+        !picked || next.every((l) => modelMatchesLanguage(picked, l));
+      set({
+        languages: next,
+        ...(stillFits ? {} : { modelId: null }),
+      });
+    },
+  });
   const [wave] = useState(() => !waved);
   useEffect(() => {
     waved = true;
     const id = setTimeout(
-      () => inputRef.current?.focus({ preventScroll: true }),
+      () => picker.inputRef.current?.focus({ preventScroll: true }),
       50,
     );
     return () => clearTimeout(id);
   }, []);
 
   const ui = i18n.language;
-  const nameOf = (code: string) => languageName(code, ui);
-  const listOf = (codes: string[]) =>
-    new Intl.ListFormat(ui, { type: "conjunction" }).format(codes.map(nameOf));
-
-  const toggle = (code: string) => {
-    const next = languages.includes(code)
-      ? languages.filter((c) => c !== code)
-      : [...languages, code];
-    // A model picked for other languages no longer counts as the pick.
-    const picked = CURATED_ASR.find((m) => m.id === modelId);
-    const stillFits =
-      !picked || next.every((l) => modelMatchesLanguage(picked, l));
-    set({
-      languages: next,
-      ...(stillFits ? {} : { modelId: null }),
-    });
-    setQuery("");
-    inputRef.current?.focus({ preventScroll: true });
-  };
-
-  const matches = useMemo(() => searchLanguages(query, ui), [query, ui]);
-  const available = matches.filter((l) => !languages.includes(l.code));
   const chinese = languages.filter(isChinese);
   const weak = languages.filter(isWeakLanguage);
-
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.nativeEvent.isComposing) return;
-    if (e.key === "Enter" && query) {
-      e.preventDefault();
-      if (available[0]) toggle(available[0].code);
-    } else if (e.key === "Backspace" && !query && languages.length) {
-      e.preventDefault();
-      toggle(languages[languages.length - 1]);
-    } else if (e.key === "Escape" && query) {
-      setQuery("");
-    }
-  };
 
   const hint = !languages.length
     ? t("onboarding.welcome.hint.pickOne")
     : weak.length
       ? t("onboarding.welcome.hint.weak", {
           count: weak.length,
-          languages: listOf(weak),
+          languages: languageList(weak, ui),
         })
       : "";
 
   // What the menus are in right now (a preview never writes the setting).
   const uiLanguage = getSupportedLanguage(ui) || "en";
-  const uiLanguageName =
-    SUPPORTED_LANGUAGES.find((l) => l.code === uiLanguage)?.nativeName ??
-    uiLanguage;
   const changeUiLanguage = (code: string) => {
     i18n.changeLanguage(code);
     if (!preview) updateSetting("app_language", code);
@@ -128,39 +78,9 @@ export const Welcome: React.FC<WelcomeProps> = ({
   return (
     <OnboardingShell
       progress={progress}
-      pill={
-        // Quiet, like Back: a setting for the window, not a step. The native
-        // menu sits invisibly over the words, which say what it changes (the
-        // menus) apart from the languages you dictate in below.
-        <label
-          title={t("onboarding.welcome.appLanguage")}
-          className="relative -me-[8px] flex shrink-0 cursor-pointer items-center gap-[6px] rounded-lg px-[8px] py-[4px] text-small text-ink-2 transition-colors hover:bg-wash hover:text-text has-[select:focus-visible]:bg-wash has-[select:focus-visible]:text-text"
-        >
-          <Globe size={16} aria-hidden="true" />
-          <span>
-            <Trans
-              i18nKey="onboarding.welcome.menusIn"
-              values={{ language: uiLanguageName }}
-              components={{ b: <b className="font-semibold text-text" /> }}
-            />
-          </span>
-          <ChevronDown size={14} aria-hidden="true" />
-          <select
-            aria-label={t("onboarding.welcome.appLanguage")}
-            value={uiLanguage}
-            onChange={(e) => changeUiLanguage(e.target.value)}
-            className="absolute inset-0 cursor-pointer opacity-0"
-          >
-            {SUPPORTED_LANGUAGES.map((l) => (
-              <option key={l.code} value={l.code} lang={l.code}>
-                {l.nativeName}
-              </option>
-            ))}
-          </select>
-        </label>
-      }
+      pill={<AppLanguageMenu value={uiLanguage} onChange={changeUiLanguage} />}
       hint={hint}
-      hintTone={languages.length && weak.length ? "warning" : "quiet"}
+      hintTone={weak.length ? "warning" : "quiet"}
       primary={
         <Button
           variant="primary"
@@ -177,91 +97,29 @@ export const Welcome: React.FC<WelcomeProps> = ({
           <Mascot size={54} animation={wave ? "wave" : null} />
           <HandyTextLogo width={112} className="mb-[4px] block" />
         </div>
-        <ScreenTitle>{t("onboarding.welcome.title")}</ScreenTitle>
-        <ScreenSub>{t("onboarding.welcome.subtitle")}</ScreenSub>
+        <ScreenHeader
+          title={t("onboarding.welcome.title")}
+          sub={t("onboarding.welcome.subtitle")}
+        />
 
         <div className="mt-lead flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-panel border-[1.5px] border-line-strong bg-background">
-          {/* Clicks around the chips go to the search (a <label> would hand
-              them to the first chip, which removes it). */}
-          <div
-            onClick={() => inputRef.current?.focus({ preventScroll: true })}
-            className="flex min-h-[46px] cursor-text flex-wrap items-center gap-[4px] border-b border-line px-[8px] py-[7px] text-start"
-          >
-            {languages.map((code) => (
-              <button
-                key={code}
-                type="button"
-                aria-label={t("onboarding.welcome.remove", {
-                  language: nameOf(code),
-                })}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={(e) => {
-                  e.preventDefault();
-                  toggle(code);
-                }}
-                className="group inline-flex h-[28px] cursor-pointer items-center gap-[6px] rounded-full border-[1.5px] border-line-strong bg-background ps-[12px] pe-[6px] text-small font-semibold text-text hover:border-plum-hover"
-              >
-                <bdi lang={code}>{getLanguage(code).native}</bdi>
-                <span className="grid size-[18px] place-items-center rounded-full leading-none text-ink-2 group-hover:bg-[color-mix(in_srgb,var(--color-text)_10%,transparent)]">
-                  <RemoveIcon />
-                </span>
-              </button>
-            ))}
-            <input
-              ref={inputRef}
-              type="text"
-              autoComplete="off"
-              spellCheck={false}
-              aria-label={t("onboarding.welcome.searchLabel")}
-              placeholder={
-                languages.length
-                  ? t("onboarding.welcome.addAnother")
-                  : t("onboarding.welcome.searchPlaceholder")
-              }
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={onKeyDown}
-              className="h-[30px] min-w-[120px] flex-1 border-0 bg-transparent px-[8px] text-body text-text outline-none placeholder:text-ink-3"
-            />
-          </div>
+          <LanguageSearchField
+            picker={picker}
+            className="border-b border-line"
+            inputClassName="min-w-[120px] text-body"
+          />
           <div
             role="group"
             aria-label={t("onboarding.welcome.languagesLabel")}
-            className="grid min-h-0 flex-1 grid-cols-3 content-start gap-[2px] overflow-y-auto p-[6px] pb-[14px] text-start [scrollbar-width:thin] [mask-image:linear-gradient(to_bottom,black_calc(100%-40px),transparent_calc(100%-6px))]"
+            className="grid min-h-0 flex-1 grid-cols-3 content-start gap-[2px] overflow-y-auto p-[6px] pb-[14px] text-start [mask-image:linear-gradient(to_bottom,black_calc(100%-40px),transparent_calc(100%-6px))]"
           >
-            {available.map((l, i) => {
-              const name = nameOf(l.code);
-              const first = !!query && i === 0;
-              return (
-                <button
-                  key={l.code}
-                  type="button"
-                  onClick={() => toggle(l.code)}
-                  className={`flex h-[46px] cursor-pointer flex-col justify-center rounded-[9px] px-[12px] text-start leading-[1.25] hover:bg-wash ${
-                    first
-                      ? "border-[1.5px] border-line-strong bg-wash"
-                      : "border border-transparent"
-                  }`}
-                >
-                  <b lang={l.code} className="font-semibold">
-                    {l.native}
-                  </b>
-                  <small className="text-label text-ink-3">
-                    {l.native !== name ? name : " "}
-                  </small>
-                </button>
-              );
-            })}
-            {!available.length && (
-              <div className="col-span-full p-[24px] text-center text-small text-ink-3">
-                {matches.length
-                  ? t("onboarding.welcome.alreadyAdded", {
-                      count: matches.length,
-                      languages: listOf(matches.map((l) => l.code)),
-                    })
-                  : t("onboarding.welcome.noMatch", { query })}
-              </div>
-            )}
+            <LanguageOptions
+              picker={picker}
+              noMatch={t("onboarding.welcome.noMatch", {
+                query: picker.query,
+              })}
+              emptyClassName="p-[24px]"
+            />
           </div>
         </div>
 
@@ -269,7 +127,7 @@ export const Welcome: React.FC<WelcomeProps> = ({
           <div className="w-full animate-rise pt-[12px] text-start">
             <p className="mt-0 mb-[8px] text-small font-semibold text-text">
               {t("onboarding.welcome.chinese.question", {
-                languages: listOf(chinese),
+                languages: languageList(chinese, ui),
               })}
             </p>
             <div
@@ -288,13 +146,15 @@ export const Welcome: React.FC<WelcomeProps> = ({
                     onClick={() => set({ script: s.id })}
                     className={`inline-flex h-[34px] cursor-pointer items-center gap-[8px] rounded-control border-[1.5px] bg-background ps-[10px] pe-[14px] text-small font-semibold text-text ${
                       picked
-                        ? "border-plum"
-                        : "border-line-strong hover:border-plum-hover"
+                        ? "border-plum-pick"
+                        : "border-line-strong hover:border-ink-3"
                     }`}
                   >
                     <Radio checked={picked} />
                     <span>
-                      <span lang={s.lang}>{s.native}</span>{" "}
+                      <span lang={s.lang} className="font-cjk-subset">
+                        {s.native}
+                      </span>{" "}
                       {t(`onboarding.welcome.chinese.${s.id}`)}
                     </span>
                   </button>

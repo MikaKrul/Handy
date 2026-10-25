@@ -21,13 +21,11 @@ interface LanguageSelectorProps {
   supportsLanguageDetection?: boolean;
 }
 
-// Mirrors the matching logic of `effective_language` in
-// src-tauri/src/managers/model.rs. The Rust function is authoritative for the
-// *concrete* code the engine receives (e.g. `jw`); this resolves the picker's
-// language identity (e.g. `jv`) so model switches preserve the user's
-// language. Codes such as `en-US` and a saved `no` resolve to `en` / `nb`.
+// Mirrors `effective_language` in src-tauri/src/managers/model.rs, but returns
+// the picker's language identity (`jv`), not the model's concrete code (`jw`).
 const effectiveLanguage = (
   intent: string,
+  preferred: string[],
   supported: string[],
   supportsDetection: boolean,
 ): string => {
@@ -35,6 +33,8 @@ const effectiveLanguage = (
   if (supported.length === 0) return wanted;
   if (wanted !== "auto" && supportsLanguage(supported, wanted)) return wanted;
   if (supportsDetection) return "auto";
+  if (preferred.length === 1 && supportsLanguage(supported, preferred[0]))
+    return languageIdentity(preferred[0]);
   if (supportsLanguage(supported, "en")) return "en";
   return languageIdentity(supported[0]);
 };
@@ -57,6 +57,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   const intent = getSetting("selected_language") || "auto";
   const selectedLanguage = effectiveLanguage(
     intent,
+    getSetting("spoken_languages") ?? [],
     supportedLanguages ?? [],
     supportsLanguageDetection,
   );
@@ -86,11 +87,22 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
 
   // The current model's own languages; every language before one is loaded.
   const hasModelLanguages = !!supportedLanguages?.length;
-  const availableLanguages = useMemo(
-    () =>
-      supportedLanguages?.length ? languagesOf(supportedLanguages) : LANGUAGES,
-    [supportedLanguages],
-  );
+  // The languages they speak lead, in the order they added them.
+  const spoken = getSetting("spoken_languages");
+  const availableLanguages = useMemo(() => {
+    const all = supportedLanguages?.length
+      ? languagesOf(supportedLanguages)
+      : LANGUAGES;
+    const rank = (code: string) => {
+      const i = spoken?.indexOf(code) ?? -1;
+      return i < 0 ? Infinity : i;
+    };
+    return [...all].sort((a, b) => {
+      const ra = rank(a.code);
+      const rb = rank(b.code);
+      return ra === rb ? 0 : ra < rb ? -1 : 1;
+    });
+  }, [supportedLanguages, spoken]);
 
   const ui = i18n.language;
   const autoLabel = t("settings.general.language.auto");
@@ -159,7 +171,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
         <div className="relative" ref={dropdownRef}>
           <button
             type="button"
-            className={`px-2 py-1 text-sm font-semibold bg-mid-gray/10 border border-mid-gray/80 rounded min-w-[200px] text-start flex items-center justify-between transition-all duration-150 ${
+            className={`px-2 py-1 text-sm font-semibold bg-wash border border-line-strong rounded min-w-[200px] text-start flex items-center justify-between transition-all duration-150 ${
               isUpdating("selected_language")
                 ? "opacity-50 cursor-not-allowed"
                 : "hover:bg-logo-primary/10 cursor-pointer hover:border-logo-primary"
@@ -186,9 +198,9 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
           </button>
 
           {isOpen && !isUpdating("selected_language") && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-mid-gray/80 rounded shadow-lg z-50 max-h-60 overflow-hidden">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-line-strong rounded shadow-lg z-50 max-h-60 overflow-hidden">
               {/* Search input */}
-              <div className="p-2 border-b border-mid-gray/80">
+              <div className="p-2 border-b border-line-strong">
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -196,13 +208,13 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
                   onChange={handleSearchChange}
                   onKeyDown={handleKeyDown}
                   placeholder={t("settings.general.language.searchPlaceholder")}
-                  className="w-full px-2 py-1 text-sm bg-mid-gray/10 border border-mid-gray/40 rounded focus:outline-none focus:ring-1 focus:ring-logo-primary focus:border-logo-primary"
+                  className="w-full px-2 py-1 text-sm bg-wash border border-line rounded focus:outline-none focus:ring-1 focus:ring-logo-primary focus:border-logo-primary"
                 />
               </div>
 
               <div className="max-h-48 overflow-y-auto">
                 {filteredLanguages.length === 0 ? (
-                  <div className="px-2 py-2 text-sm text-mid-gray text-center">
+                  <div className="px-2 py-2 text-sm text-ink-3 text-center">
                     {t("settings.general.language.noResults")}
                   </div>
                 ) : (
@@ -233,7 +245,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
         />
       </div>
       {isUpdating("selected_language") && (
-        <div className="absolute inset-0 bg-mid-gray/10 rounded flex items-center justify-center">
+        <div className="absolute inset-0 bg-wash rounded flex items-center justify-center">
           <div className="w-4 h-4 border-2 border-logo-primary border-t-transparent rounded-full animate-spin"></div>
         </div>
       )}

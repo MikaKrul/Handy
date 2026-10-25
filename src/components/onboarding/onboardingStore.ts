@@ -4,7 +4,7 @@ import {
   suggestedLanguages,
   suggestedScript,
   type ChineseScriptChoice,
-} from "./data/languages";
+} from "@/lib/utils/languageSuggestions";
 
 export type OnboardingStep =
   | "welcome"
@@ -39,6 +39,10 @@ interface Persisted {
   welcomeBack: boolean;
   /** Which ways of using the shortcut they've done for real (Try it). */
   lessons: { hold: boolean; tap: boolean };
+  /** Set when All set's panel jumps back to a screen; continuing returns here. */
+  returnTo: OnboardingStep | null;
+  /** Start Handy at login: set on All set, saved when they finish. */
+  atLogin: boolean;
 }
 
 interface OnboardingState extends Persisted {
@@ -55,17 +59,17 @@ interface OnboardingState extends Persisted {
 
 const STORAGE_KEY = "handy.onboarding";
 
-const locale = () => navigator.language || "en-US";
-
 const fresh = (): Persisted => ({
   step: "welcome",
-  languages: suggestedLanguages(locale()),
-  script: suggestedScript(locale()),
+  languages: suggestedLanguages(),
+  script: suggestedScript(),
   modelId: null,
   extraModelId: null,
   downloadId: null,
   welcomeBack: false,
   lessons: { hold: false, tap: false },
+  returnTo: null,
+  atLogin: true,
 });
 
 const isStringList = (v: unknown): v is string[] =>
@@ -95,6 +99,11 @@ const load = (): Persisted => {
       extraModelId: pick("extraModelId", isId),
       downloadId: pick("downloadId", isId),
       welcomeBack: pick("welcomeBack", isBool),
+      returnTo: pick(
+        "returnTo",
+        (v) => v === null || STEP_ORDER.includes(v as OnboardingStep),
+      ),
+      atLogin: pick("atLogin", isBool),
       lessons: pick(
         "lessons",
         (v) =>
@@ -120,6 +129,8 @@ const save = (state: OnboardingState) => {
     downloadId: state.downloadId,
     welcomeBack: state.welcomeBack,
     lessons: state.lessons,
+    returnTo: state.returnTo,
+    atLogin: state.atLogin,
   };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));

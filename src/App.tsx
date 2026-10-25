@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useState,
@@ -15,7 +16,6 @@ import {
 } from "tauri-plugin-macos-permissions-api";
 import { ModelStateEvent, RecordingErrorEvent } from "./lib/types/events";
 import "./App.css";
-import AccessibilityPermissions from "./components/AccessibilityPermissions";
 import SecureInputWarning from "./components/SecureInputWarning";
 import Footer from "./components/footer";
 import { OnboardingFlow } from "./components/onboarding/OnboardingFlow";
@@ -28,18 +28,18 @@ import {
   clearOnboardingProgress,
   type OnboardingStep as OnboardingPreviewStep,
 } from "./components/onboarding/onboardingStore";
-import { DebugSettings } from "./components/settings";
+import { DebugSettings, ModelsSettings } from "./components/settings";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { FileDropOverlay } from "./components/FileDropOverlay";
 import { Sidebar, SidebarSection, SECTIONS_CONFIG } from "./components/Sidebar";
 import { WhatsNewGate } from "./components/whats-new";
 import { useSettings } from "./hooks/useSettings";
 import { useSettingsStore } from "./stores/settingsStore";
 import { commands } from "@/bindings";
-import { deleteRetiredModel } from "@/components/onboarding/retiredModels";
+import { deleteRetiredModel } from "@/lib/models/retired";
 import { getLanguageDirection, initializeRTL } from "@/lib/utils/rtl";
 
-// flow: first-run onboarding. permissions, migration and replaceModel are its
-// screens on their own, for returning users.
+// flow is first-run onboarding; the rest are single screens for returning users.
 type OnboardingStep =
   | "flow"
   | "permissions"
@@ -51,12 +51,20 @@ const renderSettingsContent = (
   section: SidebarSection,
   onPreviewOnboarding: (step: OnboardingPreviewStep) => void,
   onRunOnboarding: () => void,
+  onRunModelMigration: () => void,
+  onSectionChange: (section: SidebarSection) => void,
 ) => {
+  if (section === "models") {
+    return (
+      <ModelsSettings onChangeLanguages={() => onSectionChange("general")} />
+    );
+  }
   if (section === "debug") {
     return (
       <DebugSettings
         onPreviewOnboarding={onPreviewOnboarding}
         onRunOnboarding={onRunOnboarding}
+        onRunModelMigration={onRunModelMigration}
       />
     );
   }
@@ -78,6 +86,7 @@ function App() {
   const [migrationModelId, setMigrationModelId] = useState<string | null>(null);
   const [currentSection, setCurrentSection] =
     useState<SidebarSection>("general");
+  const showHistory = useCallback(() => setCurrentSection("history"), []);
   const { settings, updateSetting } = useSettings();
   const direction = getLanguageDirection(i18n.language);
   const refreshAudioDevices = useSettingsStore(
@@ -310,13 +319,25 @@ function App() {
     setOnboardingStep("flow");
   };
 
+  // Debug: the real model migration screen. It leads with the selected model
+  // if that's retired, otherwise with the first retired model on disk.
+  const runModelMigration = async () => {
+    const retired = await commands.getRetiredModels();
+    if (retired.length === 0) {
+      toast.info(t("settings.debug.modelMigration.noRetired"));
+      return;
+    }
+    const selected = settings?.selected_model;
+    setMigrationModelId(
+      retired.find((m) => m.id === selected)?.id ?? retired[0].id,
+    );
+    setOnboardingStep("migration");
+  };
+
   const handleModelSelected = async () => {
-    // Coming from the model update: the user picked a different model instead
-    // of updating, so the retired models left on disk can't run anymore.
-    if (migrationModelId) {
-      for (const model of await commands.getRetiredModels()) {
-        await deleteRetiredModel(model.id);
-      }
+    // Reached when the user picks a different model instead of updating.
+    for (const model of await commands.getRetiredModels()) {
+      await deleteRetiredModel(model.id);
     }
     setOnboardingStep("done");
   };
@@ -333,11 +354,11 @@ function App() {
         unstyled: true,
         classNames: {
           toast:
-            "bg-background border border-mid-gray/20 rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 text-sm",
+            "bg-background border border-line rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 text-sm",
           title: "font-medium",
-          description: "text-mid-gray",
+          description: "text-ink-3",
           actionButton:
-            "px-2 py-1 text-xs font-medium rounded-lg border bg-mid-gray/10 border-mid-gray/20 hover:bg-background-ui/30 hover:border-logo-primary cursor-pointer whitespace-nowrap",
+            "px-2 py-1 text-xs font-medium rounded-lg border bg-wash border-line hover:bg-logo-primary/20 hover:border-logo-primary cursor-pointer whitespace-nowrap",
         },
       }}
     />
@@ -365,7 +386,7 @@ function App() {
         <button
           type="button"
           onClick={() => setOnboardingPreview(null)}
-          className="fixed top-4 end-4 z-50 rounded-lg border border-mid-gray/20 bg-background px-4 py-2 text-sm font-medium text-text shadow-lg hover:bg-background-ui/30 cursor-pointer"
+          className="fixed top-4 end-4 z-50 rounded-lg border border-line bg-background px-4 py-2 text-sm font-medium text-text shadow-lg hover:bg-logo-primary/20 cursor-pointer"
         >
           {t("settings.debug.onboardingPreview.exitButton")}
         </button>
@@ -390,9 +411,7 @@ function App() {
   } else if (onboardingStep === "replaceModel") {
     content = (
       <ReplaceModel
-        onBack={
-          migrationModelId ? () => setOnboardingStep("migration") : undefined
-        }
+        onBack={() => setOnboardingStep("migration")}
         onComplete={handleModelSelected}
       />
     );
@@ -414,20 +433,25 @@ function App() {
           {/* Scrollable content area */}
           <div className="flex-1 flex flex-col overflow-hidden">
             <div ref={settingsScrollRef} className="flex-1 overflow-y-auto">
-              <div className="flex flex-col items-center p-4 gap-4">
-                <AccessibilityPermissions />
+              {/* Models fills the window: its table scrolls, not the page. */}
+              <div
+                className={`flex flex-col items-center p-4 gap-4 ${currentSection === "models" ? "h-full" : ""}`}
+              >
                 <SecureInputWarning />
                 {renderSettingsContent(
                   currentSection,
                   setOnboardingPreview,
                   runOnboarding,
+                  runModelMigration,
+                  setCurrentSection,
                 )}
               </div>
             </div>
           </div>
         </div>
         {/* Fixed footer at bottom */}
-        <Footer />
+        <Footer onShowHistory={showHistory} />
+        <FileDropOverlay onDropped={showHistory} />
       </div>
     );
   }

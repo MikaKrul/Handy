@@ -8,10 +8,8 @@ import {
   type OnboardingStep,
 } from "../../onboarding/onboardingStore";
 
-export type OnboardingPreviewStep = OnboardingStep;
-
 interface OnboardingPreviewProps {
-  onPreview: (step: OnboardingPreviewStep) => void;
+  onPreview: (step: OnboardingStep) => void;
   descriptionMode?: "inline" | "tooltip";
   grouped?: boolean;
 }
@@ -38,23 +36,26 @@ export const OnboardingPreview: React.FC<OnboardingPreviewProps> = ({
         }))}
         selectedValue={null}
         placeholder={t("settings.debug.onboardingPreview.choose")}
-        onSelect={(value) => onPreview(value as OnboardingPreviewStep)}
+        onSelect={(value) => onPreview(value as OnboardingStep)}
       />
     </SettingContainer>
   );
 };
 
-interface OnboardingRunProps {
+interface DebugRunProps {
+  /**
+   * Runs the real flow (prompts, downloads, setting writes).
+   * `modelMigration` needs old-format models on disk.
+   */
+  run: "onboardingRun" | "modelMigration";
   onRun: () => void;
   descriptionMode?: "inline" | "tooltip";
   grouped?: boolean;
 }
 
-/**
- * Runs the real onboarding from Welcome: permission prompts, downloads, the
- * practice note and setting writes, exactly as a new person gets it.
- */
-export const OnboardingRun: React.FC<OnboardingRunProps> = ({
+/** Runs a real onboarding flow, not a preview. */
+export const DebugRun: React.FC<DebugRunProps> = ({
+  run,
   onRun,
   descriptionMode = "tooltip",
   grouped = false,
@@ -63,13 +64,13 @@ export const OnboardingRun: React.FC<OnboardingRunProps> = ({
 
   return (
     <SettingContainer
-      title={t("settings.debug.onboardingRun.title")}
-      description={t("settings.debug.onboardingRun.description")}
+      title={t(`settings.debug.${run}.title`)}
+      description={t(`settings.debug.${run}.description`)}
       descriptionMode={descriptionMode}
       grouped={grouped}
     >
       <Button variant="secondary" size="sm" onClick={onRun}>
-        {t("settings.debug.onboardingRun.button")}
+        {t(`settings.debug.${run}.button`)}
       </Button>
     </SettingContainer>
   );

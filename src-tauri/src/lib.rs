@@ -23,6 +23,7 @@ mod secure_input;
 mod settings;
 mod shortcut;
 mod signal_handle;
+mod system_languages;
 mod transcription_coordinator;
 mod tray;
 mod tray_i18n;
@@ -39,6 +40,7 @@ use managers::audio::AudioRecordingManager;
 use managers::history::HistoryManager;
 use managers::model::ModelManager;
 use managers::transcription::TranscriptionManager;
+use managers::transcription_jobs::TranscriptionJobManager;
 use media_control::MediaController;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Arc;
@@ -100,7 +102,6 @@ fn build_console_filter() -> env_filter::Filter {
 
 fn show_main_window(app: &AppHandle) {
     if let Some(main_window) = app.get_webview_window("main") {
-        commands::show_hidden_practice_note(app);
         if let Err(e) = main_window.unminimize() {
             log::error!("Failed to unminimize webview window: {}", e);
         }
@@ -218,6 +219,7 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     app_handle.manage(history_manager.clone());
     app_handle.manage(media_controller.clone());
     app_handle.manage(tray::TrayState::new());
+    app_handle.manage(TranscriptionJobManager::new(app_handle));
 
     // Note: Shortcuts are NOT initialized here.
     // The frontend is responsible for calling the `initialize_shortcuts` command
@@ -306,6 +308,10 @@ fn initialize_core_logic(app_handle: &AppHandle) {
                 let transcription_manager = app.state::<Arc<TranscriptionManager>>();
                 if !transcription_manager.is_model_loaded() {
                     log::warn!("No model is currently loaded.");
+                    return;
+                }
+                if let Err(e) = transcription_manager.ensure_model_unlocked() {
+                    log::warn!("{}", e);
                     return;
                 }
                 transcription_manager.request_unload();
@@ -743,9 +749,6 @@ pub fn run(cli_args: CliArgs) {
             commands::initialize_enigo,
             commands::initialize_shortcuts,
             commands::complete_onboarding,
-            commands::close_main_window,
-            commands::open_practice_note,
-            commands::close_practice_note,
             commands::models::get_available_models,
             commands::models::get_model_info,
             commands::models::download_model,
@@ -783,12 +786,15 @@ pub fn run(cli_args: CliArgs) {
             commands::history::get_audio_file_path,
             commands::history::delete_history_entry,
             commands::history::retry_history_entry_transcription,
+            commands::history::cancel_history_entry_transcription,
+            commands::history::transcribe_file,
             commands::history::update_history_limit,
             commands::history::update_recording_retention_period,
             helpers::clamshell::is_laptop,
         ])
         .events(collect_events![
             managers::history::HistoryUpdatePayload,
+            managers::transcription_jobs::TranscriptionJob,
             managers::transcription::StreamTextEvent,
             managers::transcription::StreamPhaseEvent,
             transcription_coordinator::RecordingStateEvent,
@@ -901,6 +907,7 @@ pub fn run(cli_args: CliArgs) {
         // only for test build in private fork, otherwise i get a fail
         // .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_os::init())
+        .plugin(system_languages::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_macos_permissions::init())
         .plugin(tauri_plugin_opener::init())
@@ -918,6 +925,7 @@ pub fn run(cli_args: CliArgs) {
                 std::env::var_os("VK_LOADER_LAYERS_DISABLE"),
                 utils::env_flag_enabled("HANDY_KEEP_VULKAN_IMPLICIT_LAYERS"),
             );
+            system_languages::log_system_languages();
 
             specta_builder.mount_events(app);
 
@@ -984,8 +992,7 @@ pub fn run(cli_args: CliArgs) {
             )]
             let main_window = win_builder.build()?;
 
-            // macOS puts the title bar inside the inner size, which would
-            // leave the page a bar short of 680×600. Grow the window by it.
+            // macOS draws the title bar inside the inner size; grow the window to fit it.
             #[cfg(target_os = "macos")]
             {
                 let bar = utils::measure_title_bar(&main_window);

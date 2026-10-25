@@ -6,33 +6,30 @@ interface GradeChipProps {
   letter: GradeLetter;
   /** What the chip says: "A+", "B−", or "—" / "?" when there's no grade. */
   label: string;
-  title?: string;
   /** Narrow, for past five languages in a row of columns. */
   dense?: boolean;
 }
 
-// Each letter's whole look, so no two classes compete for a property.
-const NEUTRAL = "bg-wash border-line";
+// Each letter's full class set, so no two classes compete for a property.
 const LETTER_CLASSES: Record<GradeLetter, string> = {
-  A: "text-moss font-bold bg-moss-wash border-[color-mix(in_srgb,var(--color-moss)_30%,transparent)]",
-  B: `text-ink-2 font-bold ${NEUTRAL}`,
-  C: `text-ink-2 font-bold ${NEUTRAL}`,
-  D: `text-error font-bold ${NEUTRAL}`,
-  F: `text-error font-bold ${NEUTRAL}`,
-  none: `text-ink-3 font-medium ${NEUTRAL}`,
+  A: "text-background font-bold border-transparent bg-text",
+  B: "text-text font-bold border-transparent bg-line",
+  C: "text-text font-bold bg-transparent border-ink-3",
+  D: "text-text font-bold bg-transparent border-dashed border-ink-3",
+  F: "text-text font-bold bg-transparent border-transparent",
+  none: "text-ink-3 font-medium bg-transparent border-transparent",
 };
 
-/** A model's accuracy for one language: A is moss, D and F are error red. */
+/** A model's accuracy grade for one language. */
 export const GradeChip: React.FC<GradeChipProps> = ({
   letter,
   label,
-  title,
   dense = false,
 }) => (
   <span
-    title={title}
     className={`inline-grid place-items-center rounded-chip border font-display leading-none h-[22px] ${dense ? "min-w-[24px] px-[3px] text-tag" : "min-w-[30px] px-[5px] text-small"} ${LETTER_CLASSES[letter]}`}
   >
-    {label}
+    {/* Trim to cap height so the letter, is centered. */}
+    <span className="block [text-box:trim-both_cap_alphabetic]">{label}</span>
   </span>
 );

@@ -13,24 +13,19 @@ const HEIGHTS = ["h-[5px]", "h-[8px]", "h-[11px]", "h-[14px]"];
 
 interface SpeedBarsProps {
   level: number;
-  title?: string;
   className?: string;
 }
 
-/** Four bars of rising height, filled up to the model's speed. */
+/** Four bars filled up to the model's speed level. */
 export const SpeedBars: React.FC<SpeedBarsProps> = ({
   level,
-  title,
   className = "",
 }) => (
-  <span
-    title={title}
-    className={`inline-flex items-end gap-[2px] h-[14px] ${className}`}
-  >
+  <span className={`inline-flex items-end gap-[2px] h-[14px] ${className}`}>
     {HEIGHTS.map((height, i) => (
       <i
         key={i}
-        className={`w-[4px] rounded-[1px] ${height} ${i < level ? "bg-ink-2" : "bg-line-strong"}`}
+        className={`w-[4px] rounded-[1px] ${height} ${i < level ? "bg-ink-2" : "bg-line"}`}
       />
     ))}
   </span>

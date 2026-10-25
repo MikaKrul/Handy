@@ -1,53 +1,14 @@
 import React, { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { Keyboard, Mic } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { Spinner } from "../../ui/Spinner";
 import { TextLink } from "../../ui/TextLink";
 import { DoneMark } from "../../shared/DoneMark";
-import {
-  OnboardingShell,
-  ScreenGap,
-  ScreenMain,
-  ScreenSub,
-  ScreenTitle,
-} from "../OnboardingShell";
+import { OnboardingShell, ScreenHeader, ScreenMain } from "../OnboardingShell";
 import { useOnboardingStore } from "../onboardingStore";
 import type { Permissions as PermissionsState } from "../usePermissions";
-
-const MicIcon = () => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <rect x="9" y="2" width="6" height="12" rx="3" />
-    <path d="M5 10a7 7 0 0 0 14 0M12 17v4" />
-  </svg>
-);
-
-const KeyboardIcon = () => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <rect x="2" y="6" width="20" height="13" rx="2" />
-    <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 15h10" />
-  </svg>
-);
 
 interface PermissionRowProps {
   icon: React.ReactNode;
@@ -62,11 +23,7 @@ interface PermissionRowProps {
   onRequest: () => void;
 }
 
-/**
- * One permission: what it is and why on the left, its status on the right
- * (Allow, Waiting, Allowed). The status column keeps a minimum width so the
- * text doesn't re-wrap as the status changes.
- */
+/** One permission row; the status column's min width stops text re-wrapping. */
 const PermissionRow: React.FC<PermissionRowProps> = ({
   icon,
   title,
@@ -130,10 +87,7 @@ interface PermissionsProps {
   onContinue: () => void;
 }
 
-/**
- * Screen 2, where the OS asks: the microphone, and Accessibility on macOS.
- * The rows are allowed in order: only the next one's Allow is live.
- */
+/** Screen 2: microphone, plus Accessibility on macOS, granted in order. */
 export const Permissions: React.FC<PermissionsProps> = ({
   permissions,
   progress,
@@ -189,31 +143,33 @@ export const Permissions: React.FC<PermissionsProps> = ({
         </Button>
       }
     >
-      <ScreenMain>
-        {welcomeBack && (
-          <div className="mb-[18px] flex animate-rise items-center gap-[10px] text-small font-semibold text-moss">
-            <DoneMark />
-            {t("onboarding.permissions.welcomeBack")}
-          </div>
-        )}
-        <ScreenTitle>
-          {t(
-            isMac
-              ? "onboarding.permissions.titleMac"
-              : "onboarding.permissions.titleWindows",
-          )}
-        </ScreenTitle>
-        <ScreenSub>
-          {t(
-            isMac
-              ? "onboarding.permissions.subtitleMac"
-              : "onboarding.permissions.subtitleWindows",
-          )}
-        </ScreenSub>
-        <ScreenGap />
+      <ScreenMain
+        header={
+          <ScreenHeader
+            above={
+              welcomeBack && (
+                <div className="flex animate-rise items-center justify-center gap-[10px] text-small font-semibold text-moss">
+                  <DoneMark />
+                  {t("onboarding.permissions.welcomeBack")}
+                </div>
+              )
+            }
+            title={t(
+              isMac
+                ? "onboarding.permissions.titleMac"
+                : "onboarding.permissions.titleWindows",
+            )}
+            sub={t(
+              isMac
+                ? "onboarding.permissions.subtitleMac"
+                : "onboarding.permissions.subtitleWindows",
+            )}
+          />
+        }
+      >
         <div className="flex w-full flex-col rounded-panel border border-line-strong px-[22px] py-[4px] text-start">
           <PermissionRow
-            icon={<MicIcon />}
+            icon={<Mic size={20} aria-hidden="true" />}
             title={t("onboarding.permissions.microphone.name")}
             why={t("onboarding.permissions.microphone.why")}
             status={permissions.microphone}
@@ -231,7 +187,7 @@ export const Permissions: React.FC<PermissionsProps> = ({
           />
           {isMac && (
             <PermissionRow
-              icon={<KeyboardIcon />}
+              icon={<Keyboard size={20} aria-hidden="true" />}
               title={t("onboarding.permissions.accessibility.name")}
               why={t("onboarding.permissions.accessibility.why")}
               status={permissions.accessibility}
@@ -251,7 +207,7 @@ export const Permissions: React.FC<PermissionsProps> = ({
         >
           <Trans
             i18nKey="onboarding.permissions.relaunch"
-            components={{ link: <TextLink onClick={relaunchHandy} /> }}
+            components={{ relaunch: <TextLink onClick={relaunchHandy} /> }}
           />
         </p>
       </ScreenMain>

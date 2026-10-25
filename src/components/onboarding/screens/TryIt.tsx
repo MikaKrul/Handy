@@ -1,516 +1,737 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { listen } from "@tauri-apps/api/event";
-import { Window } from "@tauri-apps/api/window";
-import { commands, events } from "@/bindings";
-import { useSettings } from "@/hooks/useSettings";
-import { useShortcutPress } from "@/hooks/useShortcutPress";
-import type { OSType } from "@/lib/utils/keyboard";
-import { formatModelSize } from "@/lib/utils/format";
-import { PRACTICE_NOTE_FOCUS_EVENT, PRACTICE_NOTE_LABEL } from "@/note/events";
+import {
+  keycapLabel,
+  type OSType,
+  spaceDoesNotClick,
+} from "@/lib/utils/keyboard";
+import { prefersReducedMotion } from "@/lib/utils/motion";
 import { Button } from "../../ui/Button";
 import { TextLink } from "../../ui/TextLink";
-import { Keycaps } from "../../shared/Keycaps";
-import {
-  OnboardingShell,
-  ScreenGap,
-  ScreenMain,
-  ScreenSub,
-  ScreenTitle,
-} from "../OnboardingShell";
+import { CapturedKeys, captureHintKey, Keycaps } from "../../shared/Keycaps";
+import { Mascot } from "../../shared/Mascot";
+import TrayIcon from "../../icons/TrayIcon";
+import { DesktopBar } from "../DesktopBar";
+import { WindowBar } from "../WindowBar";
+import { OnboardingShell, ScreenSub, ScreenTitle } from "../OnboardingShell";
+import { LinuxGuide } from "../LinuxGuide";
+import { TrayPanel } from "../TrayPanel";
 import { useOnboardingStore } from "../onboardingStore";
-import { useSuspendedShortcuts } from "../useSuspendedShortcuts";
-import {
-  DICTATION_SECONDS,
-  fasterOption,
-  isTooSlow,
-  type CatalogModel,
-} from "../data/models";
-import type {
-  DownloadState,
-  useOnboardingModels,
-} from "../useOnboardingModels";
+import { useTryEngine } from "../useTryEngine";
+import { MicrophoneDropdown } from "../../settings/MicrophoneSelector";
+import { useSettings } from "@/hooks/useSettings";
+import type { CatalogModel } from "@/lib/models/catalog";
+import "./tryit.css";
 
-// Closing the note waits a tick: when the screen mounts again straight away
-// (React's StrictMode, or a language change re-running the effect) the note
-// stays open instead of being destroyed under the new open.
-let noteCloseTimer: ReturnType<typeof setTimeout> | undefined;
+type Mood = "point" | "listen" | "cheer" | "oops" | "ready" | "windup";
 
-/** Asks the note's window itself, rather than trusting focus events seen. */
-const isNoteFocused = async () => {
-  try {
-    const note = await Window.getByLabel(PRACTICE_NOTE_LABEL);
-    return !!note && (await note.isFocused());
-  } catch {
-    return false;
-  }
+/**
+ * Moving into All set: wind up (auto only), high five (not Skip), fly to the
+ * tray icon, open its panel.
+ */
+type Stage = "try" | "windup" | "five" | "fly" | "set";
+/** What started it: the last take, the High five button (or Finish), Skip. */
+type How = "auto" | "five" | "skip";
+
+/** "Give me five" is up this long, the glove winding up, before it's given. */
+const WINDUP_MS = 950;
+/** The flight from the note's corner into the icon. */
+const FLIGHT_MS = 560;
+/** How far through the flight the glove starts fading into the icon. */
+const FADE_FROM = 0.7;
+
+/** The bubble's content. A new `id` fades in; the same `id` stays mounted. */
+type Say =
+  | { shape: "instruction"; id: string; line: React.ReactNode; mood: Mood }
+  | {
+      shape: "outcome" | "problem";
+      id: string;
+      line: string;
+      sub: React.ReactNode;
+      mood: Mood;
+    };
+
+/**
+ * Animates to its content's size. Wrapped text is narrowed as far as it goes
+ * without adding a line.
+ */
+const EasedSize: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const inner = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ width: number; height: number }>();
+  useLayoutEffect(() => {
+    const el = inner.current;
+    if (!el) return;
+    const measure = () => {
+      el.style.width = "";
+      const height = el.offsetHeight;
+      // offsetWidth rounds down, so +1 guarantees no wrap. Layout sizes, not
+      // getBoundingClientRect, so the transition's scale can't skew them.
+      let fits = el.offsetWidth + 1;
+      let wraps = 0;
+      while (fits - wraps > 1) {
+        const mid = Math.floor((fits + wraps) / 2);
+        el.style.width = `${mid}px`;
+        if (el.offsetHeight > height) wraps = mid;
+        else fits = mid;
+      }
+      el.style.width = `${fits}px`;
+      setSize((was) =>
+        was?.width === fits && was.height === height
+          ? was
+          : { width: fits, height },
+      );
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    // The pinned width hides content shrinking: remeasure on DOM changes too.
+    const mo = new MutationObserver(measure);
+    mo.observe(el, { childList: true, subtree: true, characterData: true });
+    measure();
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+    };
+  }, []);
+  return (
+    <div className="try-eased" style={size}>
+      <div ref={inner} className="try-eased-inner">
+        {children}
+      </div>
+    </div>
+  );
 };
 
-type Mode = "hold" | "tap";
-type Result =
-  | { kind: "none" }
-  | { kind: "notYet" }
-  | { kind: "nothingTyped" }
-  | { kind: "empty" }
-  | { kind: "failed" }
-  | { kind: "short"; wait: number }
-  | { kind: "ok"; speech: number; wait: number }
-  | { kind: "slow"; speech: number; wait: number }
-  | { kind: "switched" }
-  | { kind: "switchedReady" };
+/** The shortcut's keys in a bubble line; when idle, click to record new ones. */
+const LineKeys: React.FC<{
+  binding: string;
+  os: OSType;
+  pressed: boolean;
+  /** Start changing them; absent while a take's going on. */
+  onChange?: () => void;
+  /** Tip anchor; drawn by the bubble so its edge can't clip it. */
+  onTip?: (el: HTMLElement | null) => void;
+  label?: string;
+}> = ({ binding, os, pressed, onChange, onTip, label }) => {
+  const keys = (
+    <Keycaps
+      className={onChange ? "" : "try-keys"}
+      binding={binding}
+      osType={os}
+      size="line"
+      pressed={pressed}
+      lift={!!onChange}
+    />
+  );
+  if (!onChange) return keys;
+  const show = (ev: React.SyntheticEvent<HTMLElement>) =>
+    onTip?.(ev.currentTarget);
+  const hide = () => onTip?.(null);
+  return (
+    <button
+      type="button"
+      className="try-keys try-keys-change group/keycaps"
+      aria-label={label}
+      // The cursor stays in the note, so the next take still lands there.
+      onMouseDown={(ev) => ev.preventDefault()}
+      {...spaceDoesNotClick}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={(ev) => ev.currentTarget.matches(":focus-visible") && show(ev)}
+      onBlur={hide}
+      onClick={() => {
+        hide();
+        onChange();
+      }}
+    >
+      {keys}
+    </button>
+  );
+};
 
 interface TryItProps {
   progress: { index: number; count: number };
-  pill?: React.ReactNode;
   os: OSType;
-  models: ReturnType<typeof useOnboardingModels>;
-  /** The model in use (being downloaded or on disk). */
+  /** Open directly on All set. */
+  finished: boolean;
   model: CatalogModel | undefined;
-  download: DownloadState;
-  /** Download a quicker model (the slow-take offer). */
-  onSwitch: (modelId: string) => void;
+  /** The model is on disk. */
+  ready: boolean;
+  /** Download status, shown in All set's panel while in progress. */
+  download: React.ReactNode;
+  /** A take was too slow: go pick a faster model. */
+  onChangeModel: () => void;
+  /** Edit from All set's panel, then return here. */
+  onEdit: (to: "welcome" | "model") => void;
   onBack: () => void;
-  onFinish: () => void;
+  onArrive: () => void;
+  onUnfinish: () => void;
+  onDone: () => void;
 }
 
-/**
- * Screen 5: the first real dictation. A blank note opens beside Handy; click
- * into it, hold or tap the shortcut and talk, and the words land at the
- * cursor, as they will in any app. Takes of 5 seconds or more are timed, and
- * a slow one offers a quicker model.
- */
+/** Screen 5: first real dictation into a note; one take (hold or tap) ends it. */
 export const TryIt: React.FC<TryItProps> = ({
   progress,
-  pill,
   os,
-  models,
+  finished,
   model,
+  ready,
   download,
-  onSwitch,
+  onChangeModel,
+  onEdit,
   onBack,
-  onFinish,
+  onArrive,
+  onUnfinish,
+  onDone,
 }) => {
   const { t, i18n } = useTranslation();
-  const { getSetting } = useSettings();
-  const { languages, preview, lessons, setLessons } = useOnboardingStore();
-  const shortcut = getSetting("bindings")?.transcribe?.current_binding ?? "";
-  const threshold = getSetting("hold_threshold_ms") ?? 300;
-  const ready = preview || download.state === "ready";
+  const e = useTryEngine({ os });
+  const anyDone = e.lessons.hold || e.lessons.tap;
+  const { languages, atLogin, set } = useOnboardingStore();
+  const { refreshAudioDevices } = useSettings();
 
-  const [clicked, setClicked] = useState(false);
-  const [mode, setMode] = useState<Mode | null>(null);
-  const [finished, setFinished] = useState(false);
-  const [keysDown, setKeysDown] = useState(false);
-  const [result, setResult] = useState<Result>({ kind: "none" });
-  const [switchedTo, setSwitchedTo] = useState<string | null>(null);
-  const focusedRef = useRef(false);
-  // The take in progress's mode; the steps show it only until a take is done.
-  const modeRef = useRef<Mode | null>(null);
-  const finishedRef = useRef(false);
-  const lockedRef = useRef(false);
-  const holdTimer = useRef<ReturnType<typeof setTimeout>>();
-
+  // The mic list isn't loaded until onboarding ends; load it for the picker.
+  const silent = e.result.kind === "silent";
+  useEffect(() => {
+    if (silent) refreshAudioDevices();
+  }, [silent, refreshAudioDevices]);
   const name = model?.name ?? "";
-  // Steps done stay done: it's a first try, and later takes only update the
-  // line under them.
-  const setModeBoth = (m: Mode | null) => {
-    modeRef.current = m;
-    if (finishedRef.current) return;
-    setMode((cur) => m ?? cur);
+
+  const seconds = (s: number) =>
+    t("onboarding.try.seconds", {
+      value: new Intl.NumberFormat(i18n.language, {
+        minimumFractionDigits: s < 10 ? 1 : 0,
+        maximumFractionDigits: s < 10 ? 1 : 0,
+      }).format(s),
+    });
+
+  /* ---------- the move into All set ---------- */
+
+  // Owned here once mounted: `finished` only says where a fresh mount opens.
+  const [stage, setStage] = useState<Stage>(finished ? "set" : "try");
+  const [how, setHow] = useState<How>("five");
+  // Only after the flight, not on a relaunch.
+  const [caught, setCaught] = useState(false);
+  // Fade the title only after a swap; on arrival Demo's transition carries it.
+  const [swapped, setSwapped] = useState(false);
+  const [tail, setTail] = useState<number>();
+  const screen = useRef<HTMLDivElement>(null);
+  const tray = useRef<HTMLSpanElement>(null);
+  const glove = useRef<HTMLButtonElement>(null);
+
+  const start = (by: How) => {
+    if (stage !== "try") return;
+    setHow(by);
+    setSwapped(true);
+    if (prefersReducedMotion()) {
+      setStage("set");
+      onArrive();
+      return;
+    }
+    setStage(by === "auto" ? "windup" : "five");
   };
 
-  /* ---------- the note, and Handy's input ---------- */
-
-  const openNote = () =>
-    commands
-      .openPracticeNote(t("onboarding.try.noteTitle"))
-      .catch(console.error);
+  // The last take finishes it automatically.
+  const finale = e.result.kind === "finale";
+  useEffect(() => {
+    if (!finale) return;
+    e.dismiss();
+    start("auto");
+  }, [finale]);
 
   useEffect(() => {
-    if (preview) return;
-    clearTimeout(noteCloseTimer);
-    openNote();
-    commands.initializeEnigo().catch(console.error);
-    return () => {
-      noteCloseTimer = setTimeout(() => {
-        commands.closePracticeNote().catch(console.error);
-      }, 0);
-    };
-  }, [preview, t]);
-
-  // The shortcut records only once there's a model to transcribe with.
-  useSuspendedShortcuts(!preview && !ready);
-  useEffect(() => {
-    if (preview || !ready) return;
-    commands
-      .initializeShortcuts()
-      .then(() => commands.resumeAllBindings())
-      .catch(console.error);
-  }, [preview, ready]);
-
-  useEffect(() => {
-    const unlisten = listen<{ focused: boolean }>(
-      PRACTICE_NOTE_FOCUS_EVENT,
-      ({ payload }) => {
-        focusedRef.current = payload.focused;
-        if (payload.focused) setClicked(true);
-      },
+    if (stage !== "windup" && stage !== "five") return;
+    const next = setTimeout(
+      () => setStage(stage === "windup" ? "five" : "fly"),
+      // Take off on the slap; its settle plays during the flight.
+      stage === "windup" ? WINDUP_MS : how === "skip" ? 220 : 260,
     );
-    // Already in front (this screen came back, or its event came first).
-    isNoteFocused().then((on) => {
-      if (!on) return;
-      focusedRef.current = true;
-      setClicked(true);
-    });
-    return () => {
-      unlisten.then((off) => off());
-    };
-  }, []);
+    return () => clearTimeout(next);
+  }, [stage, how]);
 
-  /* ---------- takes ---------- */
-
-  useEffect(() => {
-    const offState = events.recordingStateEvent.listen(({ payload }) => {
-      const phase = payload.phase;
-      if (phase === "started") {
-        lockedRef.current = false;
-        setKeysDown(true);
-        clearTimeout(holdTimer.current);
-        // Still going at the threshold without locking on: they're holding.
-        holdTimer.current = setTimeout(() => {
-          if (!lockedRef.current) setModeBoth("hold");
-        }, threshold);
-      } else if (phase === "locked") {
-        lockedRef.current = true;
-        clearTimeout(holdTimer.current);
-        setKeysDown(false);
-        setModeBoth("tap");
-      } else {
-        clearTimeout(holdTimer.current);
-        setKeysDown(false);
-        if (phase === "cancelled") setModeBoth(null);
-        else if (!modeRef.current)
-          setModeBoth(lockedRef.current ? "tap" : "hold");
-      }
-    });
-    const offDone = events.transcriptionCompleteEvent.listen(
-      async ({ payload }) => {
-        const how = modeRef.current ?? "hold";
-        if (payload.outcome !== "typed") {
-          setModeBoth(null);
-          setResult({ kind: payload.outcome });
-          return;
-        }
-        if (!focusedRef.current && !(await isNoteFocused())) {
-          setModeBoth(null);
-          setResult({ kind: "nothingTyped" });
-          return;
-        }
-        finishedRef.current = true;
-        setFinished(true);
-        setLessons({ [how]: true });
-        const speech = payload.audio_seconds;
-        const wait = payload.wait_seconds;
-        if (speech >= 5)
-          setResult({
-            kind: isTooSlow(speech, wait) ? "slow" : "ok",
-            speech,
-            wait,
-          });
-        else
-          setResult((r) =>
-            r.kind === "ok" || r.kind === "slow" ? r : { kind: "short", wait },
-          );
-      },
-    );
-    return () => {
-      clearTimeout(holdTimer.current);
-      offState.then((off) => off());
-      offDone.then((off) => off());
-    };
-  }, [setLessons, threshold]);
-
-  // Before the model is ready the shortcut is off; say why when it's pressed
-  // here.
-  useShortcutPress(
-    shortcut,
-    os,
-    threshold,
-    {
-      onDown: () => !ready && setResult({ kind: "notYet" }),
-    },
-    !ready,
-  );
-
-  // A switched-to model gets one line when it's ready: how to check its speed.
-  useEffect(() => {
-    if (switchedTo && switchedTo === model?.id && ready)
-      setResult({ kind: "switchedReady" });
-  }, [switchedTo, model?.id, ready]);
-
-  /* ---------- what it says ---------- */
-
-  const nf = (v: number, digits: number) =>
-    new Intl.NumberFormat(i18n.language, {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
-    }).format(v);
-  const seconds = (s: number) =>
-    t("onboarding.model.seconds", { value: nf(s, s < 10 ? 1 : 0) });
-  const eta =
-    download.state === "downloading" && download.etaSeconds != null
-      ? download.etaSeconds < 60
-        ? t("onboarding.download.seconds", {
-            count: Math.ceil(download.etaSeconds),
-          })
-        : t("onboarding.download.minutes", {
-            count: Math.ceil(download.etaSeconds / 60),
-          })
-      : null;
-  const stillDownloading = eta
-    ? t("onboarding.try.downloadingEta", { name, time: eta })
-    : t("onboarding.try.downloading", { name });
-
-  const keys = (
-    <Keycaps
-      binding={shortcut}
-      osType={os}
-      pressed={keysDown}
-      className="mb-[3px]"
-    />
-  );
-
-  const steps: { label: React.ReactNode; done: boolean; shown: boolean }[] = [
-    { label: t("onboarding.try.stepClick"), done: clicked, shown: true },
-    {
-      label: <Trans i18nKey="onboarding.try.stepTalk" components={{ keys }} />,
-      done: !!mode,
-      shown: true,
-    },
-    {
-      label:
-        mode === "tap" ? (
-          <Trans i18nKey="onboarding.try.stepTapAgain" components={{ keys }} />
-        ) : (
-          t("onboarding.try.stepLetGo")
-        ),
-      done: finished,
-      shown: !!mode,
-    },
-  ];
-  const nowIndex = steps.findIndex((s) => s.shown && !s.done);
-
-  const faster =
-    result.kind === "slow" && model
-      ? fasterOption(
-          model,
-          languages,
-          models.tier,
-          models.picks,
-          models.offered,
-        )
-      : null;
-
-  const resultLine = (() => {
-    switch (result.kind) {
-      case "notYet":
-        return (
-          <p className="m-0">
-            {download.state === "checking"
-              ? t("onboarding.try.checking", { name })
-              : download.state === "failed"
-                ? t("onboarding.try.downloadFailed", { name })
-                : t("onboarding.try.notYet", { text: stillDownloading })}
-          </p>
-        );
-      case "empty":
-        return <p className="m-0">{t("onboarding.try.empty")}</p>;
-      case "failed":
-        return <p className="m-0">{t("onboarding.try.failed")}</p>;
-      case "nothingTyped":
-        return (
-          <p className="m-0">
-            <Trans
-              i18nKey="onboarding.try.nothingTyped"
-              components={{ b: <b className="font-bold text-text" /> }}
-            />
-          </p>
-        );
-      case "short":
-        return (
-          <p className="m-0">
-            {t("onboarding.try.short", { wait: seconds(result.wait) })}
-          </p>
-        );
-      case "ok":
-        return (
-          <p className="m-0">
-            <span className="me-[6px] font-bold text-moss">{"✓"}</span>
-            {t("onboarding.try.ok", {
-              count: Math.round(result.speech),
-              wait: seconds(result.wait),
-            })}
-          </p>
-        );
-      case "slow":
-        if (!faster)
-          return (
-            <p className="m-0">
-              {t("onboarding.try.ok", {
-                count: Math.round(result.speech),
-                wait: seconds(result.wait),
-              })}
-            </p>
-          );
-        return (
-          <div className="flex flex-col items-start gap-[10px] rounded-card border border-line-strong bg-wash px-[14px] py-[12px]">
-            <div>
-              <b className="font-bold text-text">
-                {t("onboarding.try.slowTook", {
-                  spoke: seconds(result.speech),
-                  took: seconds(result.wait),
-                })}
-              </b>{" "}
-              {t(
-                faster.worse
-                  ? "onboarding.try.slowWorse"
-                  : "onboarding.try.slowFaster",
-                {
-                  name: faster.model.name,
-                  wait: seconds(
-                    faster.wait * (result.speech / DICTATION_SECONDS),
-                  ),
-                },
-              )}
-            </div>
-            <Button
-              variant="outline"
-              size="md"
-              onClick={() => {
-                setSwitchedTo(faster.model.id);
-                setResult({ kind: "switched" });
-                onSwitch(faster.model.id);
-              }}
-            >
-              {t("onboarding.try.switch", {
-                size: formatModelSize(models.infoFor(faster.model)?.size_mb),
-              })}
-            </Button>
-          </div>
-        );
-      case "switched":
-        return <p className="m-0">{t("onboarding.try.switched", { name })}</p>;
-      case "switchedReady":
-        return (
-          <p className="m-0">{t("onboarding.try.switchedReady", { name })}</p>
-        );
-      default:
-        return null;
+  // Fly the glove into the tray icon: straight up on macOS, else a hop down.
+  useLayoutEffect(() => {
+    if (stage !== "fly") return;
+    onArrive();
+    const el = glove.current;
+    const from = el?.getBoundingClientRect();
+    const to = tray.current?.getBoundingClientRect();
+    if (!el || !from || !to) {
+      setStage("set");
+      return;
     }
+    const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+    const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+    const s = to.height / from.height;
+    const at = (x: number, y: number, scale: number) =>
+      `translate(${x}px, ${y}px) scale(${scale})`;
+    const legs: Keyframe[] =
+      os === "macos"
+        ? [
+            {
+              transform: at(0, 0, 1),
+              opacity: 1,
+              easing: "cubic-bezier(0.35, 0, 0.15, 1)",
+            },
+          ]
+        : [
+            {
+              transform: at(0, 0, 1),
+              opacity: 1,
+              easing: "cubic-bezier(0.33, 1, 0.68, 1)",
+            },
+            {
+              transform: at(dx * 0.4, Math.min(dy, 0) - 40, 0.7),
+              opacity: 1,
+              offset: 0.32,
+              easing: "cubic-bezier(0.32, 0, 0.67, 0)",
+            },
+          ];
+    const flight = el.animate(
+      [
+        ...legs,
+        { opacity: 1, offset: FADE_FROM },
+        { transform: at(dx, dy, s), opacity: 0 },
+      ],
+      { duration: FLIGHT_MS, fill: "both" },
+    );
+    const land = setTimeout(() => {
+      setCaught(true);
+      setStage("set");
+    }, FLIGHT_MS);
+    return () => {
+      clearTimeout(land);
+      flight.cancel();
+    };
+  }, [stage]);
+
+  // The panel's tail points at the icon, wherever the bar puts it.
+  useLayoutEffect(() => {
+    if (stage !== "set") return;
+    const box = screen.current?.getBoundingClientRect();
+    const icon = tray.current?.getBoundingClientRect();
+    if (!box || !icon) return;
+    const rtl = document.documentElement.dir === "rtl";
+    const mid = icon.left + icon.width / 2;
+    const fromEnd = rtl ? mid - box.left : box.right - mid;
+    // The panel's inset comes from tryit.css (--try-panel-end).
+    const end =
+      parseFloat(
+        getComputedStyle(screen.current!).getPropertyValue("--try-panel-end"),
+      ) || 0;
+    setTail(Math.max(24, fromEnd - end));
+  }, [stage, os]);
+
+  const moving = stage === "windup" || stage === "five" || stage === "fly";
+  const after = stage === "fly" || stage === "set";
+  const fived = (stage === "five" || stage === "fly") && how !== "skip";
+
+  /* ---------- changing the shortcut ---------- */
+
+  const bubble = useRef<HTMLDivElement>(null);
+  // The "Change" tip, placed over the keys from the bubble's corner.
+  const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
+  const placeTip = (el: HTMLElement | null) => {
+    const box = bubble.current?.getBoundingClientRect();
+    if (!el || !box) return setTip(null);
+    const keys = el.getBoundingClientRect();
+    setTip({ x: keys.left + keys.width / 2 - box.left, y: keys.top - box.top });
+  };
+  const { capturing, partial } = e.capture;
+  const captureHint = captureHintKey(partial);
+  const keysLabel = keycapLabel(e.shortcut, os);
+
+  /* ---------- what the glove says ---------- */
+
+  const say = ((): Say => {
+    if (moving && how === "auto")
+      return {
+        shape: "instruction",
+        id: "giveFive",
+        line: t("onboarding.try.giveFive"),
+        mood: "cheer",
+      };
+    const instruction = (key: string): Say => ({
+      shape: "instruction",
+      id: key,
+      line: (
+        <Trans
+          i18nKey={key}
+          components={{
+            keys: (
+              <LineKeys
+                binding={e.shortcut}
+                os={os}
+                pressed={e.keysDown}
+                onChange={e.phase === "idle" ? e.capture.start : undefined}
+                onTip={placeTip}
+                label={t("onboarding.try.changeKeys", { keys: keysLabel })}
+              />
+            ),
+          }}
+        />
+      ),
+      // Only used while idle (see data-mood).
+      mood: "point",
+    });
+    if (capturing)
+      return {
+        shape: "instruction",
+        id: captureHint,
+        line: (
+          <>
+            {t(captureHint)}{" "}
+            <CapturedKeys
+              partial={partial}
+              osType={os}
+              size="line"
+              className="try-keys"
+              slotClassName="try-slot"
+            />
+            <TextLink className="try-cancel" onClick={e.capture.cancel}>
+              {t("onboarding.demo.cancel")}
+            </TextLink>
+          </>
+        ),
+        mood: "point",
+      };
+    // Only a noticeable wait replaces the (dimmed) line.
+    if (e.phase === "typing" && e.waiting)
+      return instruction("onboarding.try.watch");
+    // Keys down: wait until hold vs. tap is known so the bubble changes once.
+    if (e.phase !== "idle" && e.take)
+      return instruction(
+        e.take === "tap" ? "onboarding.try.tapAgain" : "onboarding.try.letGo",
+      );
+
+    const r = e.result;
+    switch (r.kind) {
+      case "done":
+        return r.way === "hold"
+          ? {
+              shape: "outcome",
+              id: "doneHold",
+              line: t("onboarding.try.doneHold"),
+              sub: t("onboarding.try.doneHoldNext"),
+              mood: "cheer",
+            }
+          : {
+              shape: "outcome",
+              id: "doneTap",
+              line: t("onboarding.try.doneTap"),
+              sub: t("onboarding.try.doneTapNext"),
+              mood: "cheer",
+            };
+      // Silent mic: offer the picker inline, keeping focus in the note.
+      case "silent":
+        return {
+          shape: "problem",
+          id: "silent",
+          line: t("onboarding.try.silent"),
+          sub: (
+            <>
+              {t("onboarding.try.silentSub")}
+              <div
+                className="try-mic-pick"
+                aria-live="off"
+                onMouseDown={(ev) => ev.preventDefault()}
+              >
+                <MicrophoneDropdown
+                  placement="above"
+                  tone="neutral"
+                  onPicked={() => {
+                    e.dismiss();
+                    e.field.current?.focus({ preventScroll: true });
+                  }}
+                />
+              </div>
+            </>
+          ),
+          mood: "oops",
+        };
+      case "nothingTyped":
+      case "noWords":
+        return {
+          shape: "problem",
+          id: r.kind,
+          line: t(`onboarding.try.${r.kind}`),
+          sub: t(`onboarding.try.${r.kind}Sub`),
+          mood: "oops",
+        };
+    }
+    // Both already done (back from All set, or a relaunch).
+    if (!e.todo)
+      return {
+        shape: "outcome",
+        id: "ask",
+        line: t("onboarding.try.giveFive"),
+        sub: (
+          <Button
+            variant="primary"
+            size="md"
+            className="try-five"
+            // The cursor stays in the note.
+            onMouseDown={(ev) => ev.preventDefault()}
+            onClick={() => start("five")}
+            disabled={stage !== "try"}
+          >
+            <TrayIcon state="idle" size={16} />
+            {t("onboarding.try.highFive")}
+          </Button>
+        ),
+        mood: "ready",
+      };
+    return instruction(
+      e.todo === "hold" ? "onboarding.try.hold" : "onboarding.try.tapNext",
+    );
   })();
 
-  const tookOne = lessons.hold || lessons.tap;
+  // Hide the tip on a new line, a take, or capture.
+  useEffect(() => setTip(null), [say.id, e.phase, capturing]);
+
+  // Skip before any take (dictation may not work here yet), Finish after one,
+  // none once both are done (the bubble has the button), Done on All set.
+  const hint = after ? (
+    // On Linux, working here doesn't guarantee it works in other apps.
+    os === "linux" ? (
+      <LinuxGuide i18nKey="onboarding.linux.done" />
+    ) : (
+      t("onboarding.done.hint")
+    )
+  ) : !anyDone && os === "linux" ? (
+    <LinuxGuide i18nKey="onboarding.linux.tryIt" />
+  ) : (
+    ""
+  );
+  const primary = after ? (
+    <Button variant="primary" size="lg" onClick={onDone}>
+      {t("onboarding.done.finish")}
+    </Button>
+  ) : stage !== "try" || !e.todo ? null : (
+    <Button
+      variant="outline"
+      size="lg"
+      onClick={() => start(anyDone ? "five" : "skip")}
+    >
+      {t(anyDone ? "onboarding.try.finish" : "onboarding.try.skip")}
+    </Button>
+  );
+
+  const isMac = os === "macos";
+
   return (
     <OnboardingShell
       progress={progress}
-      pill={pill}
-      onBack={onBack}
-      // Once the model is ready, someone whose dictation can't work here yet
-      // can still finish setting up.
-      hint={
-        ready && !tookOne ? (
-          <TextLink onClick={onFinish}>{t("onboarding.try.skip")}</TextLink>
-        ) : (
-          ""
-        )
+      onBack={
+        stage === "set"
+          ? () => {
+              setStage("try");
+              setCaught(false);
+              onUnfinish();
+            }
+          : stage === "try"
+            ? onBack
+            : undefined
       }
-      primary={
-        <Button
-          variant="primary"
-          size="lg"
-          disabled={!preview && !tookOne}
-          onClick={onFinish}
-        >
-          {t("onboarding.try.finish")}
-        </Button>
-      }
+      hint={hint}
+      primary={primary}
     >
-      {/* The practice note covers the window's right side. */}
-      <ScreenMain align="start" className="pe-[270px]">
-        <ScreenTitle>{t("onboarding.try.title")}</ScreenTitle>
-        <ScreenSub>{t("onboarding.try.subtitle")}</ScreenSub>
-        {/* Room for the fullest state (three steps and the faster-model
-            card), so the centred screen doesn't shift as they appear. */}
-        <ScreenGap />
-        <div className="flex min-h-[272px] w-full flex-col">
-          <ol className="m-0 flex w-full list-none flex-col gap-[4px] p-0">
-            {steps.map((step, i) =>
-              step.shown ? (
-                <li
-                  key={i}
-                  className={`flex min-h-[40px] items-center gap-[12px] ${
-                    step.done
-                      ? "text-ink-2"
-                      : i === nowIndex
-                        ? "font-semibold text-text"
-                        : "text-ink-3"
-                  }`}
-                >
-                  <span
-                    className={`grid size-[22px] shrink-0 place-items-center rounded-full text-label font-bold ${
-                      step.done
-                        ? "border border-moss bg-moss text-background"
-                        : i === nowIndex
-                          ? "border-[1.5px] border-plum bg-background text-text"
-                          : "border border-line bg-wash text-ink-3"
-                    }`}
-                  >
-                    {step.done ? "✓" : i + 1}
-                  </span>
-                  <span className="inline-flex flex-wrap items-center gap-[6px] leading-[1.4]">
-                    {step.label}
-                  </span>
-                </li>
-              ) : null,
-            )}
-            {!ready && download.state === "failed" && (
-              <li className="ms-[34px] mt-[8px] text-small leading-[1.45] text-ink-2">
-                <span className="text-warning">
-                  {t("onboarding.try.downloadFailed", { name })}
-                </span>{" "}
-                <TextLink onClick={() => model && onSwitch(model.id)}>
-                  {t("onboarding.download.retry")}
-                </TextLink>
-              </li>
-            )}
-            {!ready && download.state !== "failed" && (
-              <li className="ms-[34px] mt-[8px] text-small leading-[1.45] text-ink-2">
-                <div className="mb-[8px] h-[6px] overflow-hidden rounded-full bg-line">
-                  <i
-                    className="block h-full rounded-[inherit] bg-background-ui transition-[width] duration-[120ms] ease-linear"
-                    style={{
-                      width: `${((download.state === "downloading" ? download.progress : 1) * 100).toFixed(1)}%`,
-                    }}
+      <div className="try-main" data-stage={stage}>
+        <ScreenTitle
+          key={after ? "done" : "try"}
+          className={swapped ? "try-swap" : ""}
+        >
+          {t(after ? "onboarding.done.title" : "onboarding.try.title")}
+        </ScreenTitle>
+        <ScreenSub
+          key={after ? "done-sub" : "try-sub"}
+          className={swapped ? "try-swap" : ""}
+        >
+          {after ? (
+            <Trans
+              i18nKey={
+                isMac ? "onboarding.done.subMac" : "onboarding.done.subTray"
+              }
+              components={{
+                keys: (
+                  <Keycaps
+                    className="try-sub-keys"
+                    binding={e.shortcut}
+                    osType={os}
+                    size="line"
+                    pressed={e.keysDown}
                   />
-                </div>
-                <span className="tabular-nums">
-                  {download.state === "checking"
-                    ? t("onboarding.try.checking", { name })
-                    : stillDownloading}
-                </span>{" "}
-                {t("onboarding.try.worksOnceDone")}
-              </li>
-            )}
-          </ol>
+                ),
+              }}
+            />
+          ) : (
+            t("onboarding.try.subtitle")
+          )}
+        </ScreenSub>
+        <div
+          ref={screen}
+          className="try-screen"
+          data-os={isMac ? "mac" : "win"}
+        >
+          <DesktopBar
+            os={os}
+            size="try"
+            state={
+              e.phase === "listening"
+                ? "recording"
+                : e.phase === "typing"
+                  ? "transcribing"
+                  : "idle"
+            }
+            trayRef={tray}
+            caught={caught}
+          />
           <div
-            role="status"
-            aria-live="polite"
-            className="mt-[18px] w-full text-small leading-[1.45] text-ink-2 text-pretty"
+            className="try-notes"
+            // A click anywhere in the window puts the cursor in the note.
+            onMouseDown={(ev) => {
+              if (ev.target === e.field.current) return;
+              ev.preventDefault();
+              e.field.current?.focus();
+            }}
           >
-            {resultLine}
+            <WindowBar size="lg" title={t("onboarding.demo.apps.notes")} />
+            <div className="try-note">
+              <p className="try-note-title">{t("onboarding.demo.noteTitle")}</p>
+              <textarea
+                ref={e.field}
+                className="try-note-page"
+                placeholder={t("onboarding.try.placeholder")}
+                aria-label={t("onboarding.try.noteLabel")}
+                spellCheck={false}
+              />
+            </div>
           </div>
+
+          {stage !== "set" && (
+            <div className="try-guide">
+              <button
+                ref={glove}
+                type="button"
+                className="try-glove"
+                data-mood={
+                  stage === "windup"
+                    ? "windup"
+                    : moving
+                      ? "cheer"
+                      : e.phase === "idle"
+                        ? say.mood
+                        : "listen"
+                }
+                data-how={how}
+                aria-label={t("onboarding.done.highFiveLabel")}
+                onMouseDown={(ev) => ev.preventDefault()}
+                // Finishes when both ways are done; otherwise just a slap.
+                onClick={() =>
+                  stage === "try" && !e.todo ? start("five") : e.slap()
+                }
+              >
+                <span className="try-pose">
+                  <Mascot
+                    key={fived ? "finale" : e.fives}
+                    size={88}
+                    animation={fived || e.fives ? "slap" : "wave"}
+                  />
+                </span>
+                {(fived || e.fives > 0) && (
+                  <span
+                    key={fived ? "burst-finale" : `burst-${e.fives}`}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute start-1/2 -top-[22px] -ms-[20px] animate-burst opacity-0"
+                  >
+                    <svg
+                      viewBox="0 0 60 60"
+                      width="40"
+                      height="40"
+                      className="block fill-none stroke-background-ui"
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                    >
+                      <path d="M30 22V6M40 26l10-10M20 26 10 16" />
+                    </svg>
+                  </span>
+                )}
+              </button>
+              <div
+                ref={bubble}
+                className={`try-bubble ${stage === "five" || stage === "fly" ? "try-leaving" : ""}`}
+                data-shape={say.shape}
+                role="status"
+                aria-live="polite"
+              >
+                <EasedSize>
+                  <div
+                    className="try-say"
+                    data-dim={(e.phase === "typing" && !e.waiting) || undefined}
+                  >
+                    <p key={`line:${say.id}`} className="try-say-main">
+                      {say.line}
+                    </p>
+                    {say.shape !== "instruction" && (
+                      <div
+                        key={`sub:${say.id}`}
+                        className={`try-say-sub ${say.id === "ask" ? "try-ask" : ""}`}
+                      >
+                        {say.sub}
+                      </div>
+                    )}
+                  </div>
+                </EasedSize>
+                {tip && (
+                  <span
+                    className="try-tip"
+                    aria-hidden="true"
+                    style={{ left: tip.x, top: tip.y }}
+                  >
+                    {t("onboarding.demo.change")}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {stage === "set" && tail != null && (
+            <TrayPanel
+              os={os}
+              languages={languages}
+              modelName={name}
+              ready={ready}
+              download={download}
+              shortcut={e.shortcut}
+              keysDown={e.keysDown}
+              capture={e.capture}
+              atLogin={atLogin}
+              onAtLogin={(on) => set({ atLogin: on })}
+              onChangeLanguages={() => onEdit("welcome")}
+              onChangeModel={() => onEdit("model")}
+              tailAt={tail}
+            />
+          )}
         </div>
-      </ScreenMain>
+        {/* Always reserves its height so the screen doesn't jump. */}
+        <div className="try-after">
+          {e.slowWait != null && (
+            <span>
+              <Trans
+                i18nKey="onboarding.try.slowLine"
+                values={{ name, wait: seconds(e.slowWait) }}
+                // Not <link>: it's a void element in HTML.
+                components={{
+                  faster: (
+                    <TextLink
+                      onClick={after ? () => onEdit("model") : onChangeModel}
+                    />
+                  ),
+                }}
+              />
+            </span>
+          )}
+        </div>
+      </div>
     </OnboardingShell>
   );
 };

@@ -1,6 +1,6 @@
-import React, { useEffect, useLayoutEffect } from "react";
+import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { commands } from "@/bindings";
+import { commands, type ChineseScript } from "@/bindings";
 import { useSettings } from "@/hooks/useSettings";
 import {
   STEP_ORDER,
@@ -9,43 +9,38 @@ import {
   type OnboardingStep,
 } from "./onboardingStore";
 import { usePermissions } from "./usePermissions";
-import type { ChineseScriptChoice } from "./data/languages";
-import { isChinese } from "./data/languages";
+import type { ChineseScriptChoice } from "@/lib/utils/languageSuggestions";
+import { isChinese } from "@/lib/utils/languageSuggestions";
 import { Welcome } from "./screens/Welcome";
 import { Permissions } from "./screens/Permissions";
 import { Model } from "./screens/Model";
 import { Demo } from "./screens/Demo";
 import { TryIt } from "./screens/TryIt";
-import { AllSet } from "./screens/AllSet";
 import { useOsType } from "@/hooks/useOsType";
-import { OnboardingPill } from "./OnboardingPill";
+import { DownloadStatus } from "./DownloadStatus";
 import { useOnboardingModels } from "./useOnboardingModels";
 import { useModelStore } from "@/stores/modelStore";
+import { moveScreens } from "./screenTransitions";
+import { downloadPick } from "./downloadPick";
+import "./screenTransitions.css";
 
 interface OnboardingFlowProps {
   /** Debug preview: inert (no prompts, downloads or setting writes). */
   preview?: boolean;
   /** The screen a preview opens on. */
   previewStep?: OnboardingStep;
-  /** Called once the person closes the last screen. */
+  /** Called after the last screen, to show Settings. */
   onComplete: () => void;
 }
 
 // The backend's chinese_script values for the script picked on Welcome.
-const SCRIPT_SETTING: Record<
-  ChineseScriptChoice,
-  "simplified" | "traditional"
-> = {
+const SCRIPT_SETTING: Record<ChineseScriptChoice, ChineseScript> = {
   "zh-Hans": "simplified",
-  "zh-Hant": "traditional",
-  "zh-HK": "traditional",
+  "zh-Hant": "traditional_tw",
+  "zh-HK": "traditional_hk",
 };
 
-/**
- * First-run onboarding: Welcome, Permissions (where the OS asks), Model,
- * Demo, Try it, All set. Remembers where it is, so a relaunch (the macOS
- * Accessibility fallback) or a quit comes back to the same screen.
- */
+/** First-run onboarding. Progress persists, so a relaunch or quit resumes. */
 export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   preview = false,
   previewStep,
@@ -58,13 +53,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const osType = useOsType();
   const models = useOnboardingModels(store.languages);
   const currentModel = useModelStore((s) => s.currentModel);
-  const cancelDownload = useModelStore((s) => s.cancelDownload);
   const selectModel = useModelStore((s) => s.selectModel);
 
-  // Once the model list is in (read from the store, not this render: the
-  // reset below runs first). Has a model: one already on disk is the starting
-  // pick (the selected model if it's on disk, else an on-disk pick, else any
-  // on-disk model). Back mid-download after a quit: that download stopped.
+  // Once models load: start from an on-disk model if there is one, or flag a
+  // download interrupted by a quit. Reads the store since reset() runs first.
   useEffect(() => {
     if (preview || !models.offered.length) return;
     const { downloadId } = useOnboardingStore.getState();
@@ -78,17 +70,16 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       (m) => models.infoFor(m)?.is_downloaded,
     );
     if (!onDisk.length) return;
+    const selected = models.catalogFor(settings?.selected_model ?? "");
     const chosen =
-      models.catalogFor(settings?.selected_model ?? "") ??
+      onDisk.find((m) => m.id === selected?.id) ??
       onDisk.find((m) => models.picks.some((p) => p.model.id === m.id)) ??
       onDisk[0];
-    if (chosen?.id && models.infoFor(chosen)?.is_downloaded)
-      store.set({ downloadId: chosen.id });
+    store.set({ downloadId: chosen.id });
     // Decided once the model list is in.
   }, [models.offered.length]);
 
-  // The picked model becomes Handy's model as soon as it's on disk, so Try it
-  // can dictate with it.
+  // Select the picked model as soon as it's on disk, so Try it can use it.
   const downloaded = models.offered.find((m) => m.id === store.downloadId);
   const downloadedInfo = downloaded && models.infoFor(downloaded);
   useEffect(() => {
@@ -102,8 +93,18 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     selectModel,
   ]);
 
-  // Before the first paint, so a preview never shows the saved step. Leaving
-  // a preview puts the real progress back.
+  // Demo and Try it teach hold and tap, which only hold_or_toggle supports;
+  // settings migrated from push_to_talk may still be Toggle or PushToTalk.
+  const activationSet = useRef(false);
+  const activation = settings?.shortcut_activation;
+  useEffect(() => {
+    if (preview || !activation || activationSet.current) return;
+    activationSet.current = true;
+    if (activation !== "hold_or_toggle")
+      updateSetting("shortcut_activation", "hold_or_toggle");
+  }, [preview, activation]);
+
+  // Before first paint so a preview never shows the saved step.
   useLayoutEffect(() => {
     store.reset(preview);
     if (preview && previewStep) store.set({ step: previewStep });
@@ -113,8 +114,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     // Once per mount.
   }, []);
 
-  // A preview can switch the menus' language on Welcome; leaving it puts
-  // back the language the app was in.
+  // Restore the UI language a preview may have changed on Welcome.
   useEffect(() => {
     if (!preview) return;
     const before = i18n.language;
@@ -130,7 +130,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   );
   const step = steps.includes(store.step) ? store.step : steps[0];
   const progress = { index: steps.indexOf(step), count: steps.length };
-  const go = (to: OnboardingStep) => store.set({ step: to });
+  // Reaching returnTo ends the detour.
+  const go = (to: OnboardingStep) =>
+    store.set(
+      to === store.returnTo ? { step: to, returnTo: null } : { step: to },
+    );
+  /** Next screen, or back to All set after a detour from its panel. */
+  const onward = () => (store.returnTo ? go(store.returnTo) : next());
   const next = () => {
     const i = steps.indexOf(step);
     if (i < steps.length - 1) go(steps[i + 1]);
@@ -143,42 +149,23 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   };
 
   const finish = async () => {
+    // Saved only now: each login item change posts a macOS notification.
     if (!preview) {
+      await updateSetting("autostart_enabled", store.atLogin);
       await commands.completeOnboarding();
-      await commands.closeMainWindow();
     }
     onComplete();
-    // After the window has gone, so the flow doesn't flash back to Welcome.
+    // After Settings replaces the flow, so Welcome doesn't flash.
     if (!preview) clearOnboardingProgress();
   };
 
-  /** Download (or keep) the picked model, then move on. */
   const chooseModel = (id: string) => {
     startModel(id);
-    next();
+    onward();
   };
 
-  /** Make this the model: download it unless it's on disk already. */
   const startModel = (id: string) => {
-    const model = models.offered.find((m) => m.id === id);
-    const info = model && models.infoFor(model);
-    if (!preview && model && info) {
-      const previous = models.offered.find((m) => m.id === store.downloadId);
-      const previousInfo = previous && models.infoFor(previous);
-      if (
-        previousInfo &&
-        previousInfo.id !== info.id &&
-        models.downloadState(previous).state === "downloading"
-      )
-        cancelDownload(previousInfo.id);
-      // A new pick, or the same one again after its download stopped.
-      if (
-        !info.is_downloaded &&
-        (store.downloadId !== id ||
-          models.downloadState(model).state === "failed")
-      )
-        models.startDownload(model);
-    }
+    if (!preview) downloadPick(models, id, store.downloadId);
     store.set({
       modelId: id,
       downloadId: id,
@@ -188,21 +175,12 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     ? ({ state: "ready" } as const)
     : models.downloadState(downloaded);
   const modelReady = downloadNow.state === "ready";
-  // From Model on. On a first visit to Model there's nothing to report yet;
-  // coming back to it mid-download, the pill shows how far it's got.
-  const pill =
-    steps.indexOf(step) >= steps.indexOf("model") ? (
-      <OnboardingPill models={models} />
-    ) : undefined;
 
   const saveLanguages = () => {
     if (preview) return;
     const { languages, script } = useOnboardingStore.getState();
+    // The model's own Language stays as is; effective_language uses these.
     updateSetting("spoken_languages", languages);
-    updateSetting(
-      "selected_language",
-      languages.length === 1 ? languages[0] : "auto",
-    );
     if (languages.some(isChinese))
       updateSetting("chinese_script", SCRIPT_SETTING[script]);
   };
@@ -212,10 +190,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       return (
         <Welcome
           progress={progress}
-          preview={preview}
           onContinue={() => {
             saveLanguages();
-            next();
+            onward();
           }}
         />
       );
@@ -233,8 +210,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
         <Model
           progress={progress}
           models={models}
-          pill={pill}
-          onBack={back}
+          onBack={store.returnTo ? () => go(store.returnTo!) : back}
           onChoose={chooseModel}
         />
       );
@@ -242,39 +218,37 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       return (
         <Demo
           progress={progress}
-          pill={pill}
           os={osType}
           ready={modelReady}
           downloadFailed={downloadNow.state === "failed"}
+          download={<DownloadStatus models={models} model={downloaded} />}
+          onRetry={() => downloaded && startModel(downloaded.id)}
           onBack={back}
-          onContinue={next}
+          onContinue={() => moveScreens("in", next)}
         />
       );
+    // Same element for both steps, so Try it stays mounted into All set.
     case "try":
-      return (
-        <TryIt
-          progress={progress}
-          pill={pill}
-          os={osType}
-          models={models}
-          model={downloaded}
-          download={downloadNow}
-          onSwitch={startModel}
-          onBack={back}
-          onFinish={next}
-        />
-      );
     case "done":
       return (
-        <AllSet
+        <TryIt
+          key="try"
           progress={progress}
-          pill={pill}
           os={osType}
-          onBack={back}
-          onClose={finish}
+          finished={step === "done"}
+          // Falls back to the selected model in a preview.
+          model={
+            downloaded ?? models.catalogFor(settings?.selected_model ?? "")
+          }
+          ready={modelReady}
+          download={<DownloadStatus models={models} model={downloaded} />}
+          onChangeModel={() => go("model")}
+          onEdit={(to) => store.set({ step: to, returnTo: "done" })}
+          onBack={() => moveScreens("out", back)}
+          onArrive={() => go("done")}
+          onUnfinish={() => go("try")}
+          onDone={finish}
         />
       );
-    default:
-      return null;
   }
 };
