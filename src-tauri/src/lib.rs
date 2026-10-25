@@ -1108,14 +1108,6 @@ pub fn run(cli_args: CliArgs) {
             Ok(())
         })
         .on_window_event(|window, event| match event {
-            // Onboarding's practice note stays until Handy closes it (its
-            // close button is off; this catches Cmd+W and Alt+F4). It isn't
-            // Handy's window, so it skips the hide below.
-            tauri::WindowEvent::CloseRequested { api, .. }
-                if window.label() == commands::PRACTICE_NOTE_LABEL =>
-            {
-                api.prevent_close();
-            }
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 // Stop any history audio playback before hiding: the webview
                 // keeps running while hidden to tray, so playback would
@@ -1125,7 +1117,6 @@ pub fn run(cli_args: CliArgs) {
                 }
                 api.prevent_close();
                 let _res = window.hide();
-                commands::on_main_window_hidden(window.app_handle());
 
                 #[cfg(target_os = "macos")]
                 {
