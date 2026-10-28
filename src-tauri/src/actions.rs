@@ -908,10 +908,16 @@ impl ShortcutAction for TranscribeAction {
                         if keep_cancelled_recordings && wav_saved {
                             if let Err(err) = hm.save_entry(
                                 file_name,
-                                transcription_result.as_ref().cloned().unwrap_or_default(),
+                                transcription_result
+                                    .as_ref()
+                                    .map(|t| t.text.clone())
+                                    .unwrap_or_default(),
                                 post_process,
                                 None,
                                 None,
+                                transcription_result
+                                    .as_ref()
+                                    .and_then(|t| t.language.clone()),
                             ) {
                                 error!("Failed to save cancelled history entry: {}", err);
                             }
@@ -956,6 +962,7 @@ impl ShortcutAction for TranscribeAction {
                                         post_process,
                                         None,
                                         None,
+                                        language,
                                     ) {
                                         error!("Failed to save cancelled history entry: {}", err);
                                     }
@@ -1132,7 +1139,7 @@ pub fn keep_cancelled_recording(app: &AppHandle, samples: Vec<f32>) {
             return;
         }
 
-        let entry = match hm.save_entry(file_name, String::new(), false, None, None) {
+        let entry = match hm.save_entry(file_name, String::new(), false, None, None, None) {
             Ok(entry) => entry,
             Err(e) => {
                 error!("Failed to save cancelled recording to history: {}", e);
@@ -1149,8 +1156,8 @@ pub fn keep_cancelled_recording(app: &AppHandle, samples: Vec<f32>) {
         let transcription = tm.transcribe_recording(samples);
 
         match transcription {
-            Ok(text) if !text.is_empty() => {
-                if let Err(e) = hm.update_transcription(entry.id, text, None, None) {
+            Ok(Transcription { text, language }) if !text.is_empty() => {
+                if let Err(e) = hm.update_transcription(entry.id, text, None, None, language) {
                     error!("Failed to update cancelled history entry: {}", e);
                 }
             }
