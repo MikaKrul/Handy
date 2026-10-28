@@ -917,6 +917,7 @@ impl ShortcutAction for TranscribeAction {
                                 None,
                                 transcription_result
                                     .as_ref()
+                                    .ok()
                                     .and_then(|t| t.language.clone()),
                             ) {
                                 error!("Failed to save cancelled history entry: {}", err);
