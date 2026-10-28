@@ -713,6 +713,13 @@
           "placeholder": "sk-..."
         }
       },
+      "output": {
+        "title": "Output",
+        "zeroWidthFilter": {
+          "title": "Strip Invisible Characters",
+          "description": "Remove invisible zero-width Unicode characters (U+200B, U+200C, U+200D, U+FEFF) that some LLMs insert into post-processing output."
+        }
+      },
       "prompts": {
         "title": "Prompt",
         "selectedPrompt": {

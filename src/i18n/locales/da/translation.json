@@ -515,6 +515,7 @@
           "options": {
             "none": "Ingen",
             "minimal": "Minimal",
+            "mini": "Mini",
             "live": "Live"
           }
         },
@@ -710,6 +711,13 @@
           "title": "API-nøgle til reservemodellen",
           "description": "Bruges kun til det andet forsøg. Den primære model bruger stadig API-nøglen ovenfor.",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "Output",
+        "zeroWidthFilter": {
+          "title": "Fjern usynlige tegn",
+          "description": "Fjerner usynlige Unicode-tegn med nul bredde (U+200B, U+200C, U+200D, U+FEFF), som nogle LLM'er indsætter i output fra efterbehandlingen."
         }
       },
       "prompts": {

@@ -515,6 +515,7 @@
           "options": {
             "none": "Nenhum",
             "minimal": "Minimalista",
+            "mini": "Mini",
             "live": "Ao vivo"
           }
         },
@@ -710,6 +711,13 @@
           "title": "Chave de API do modelo alternativo",
           "description": "Usada apenas na segunda tentativa. O modelo principal continua usando a chave de API acima.",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "Saída",
+        "zeroWidthFilter": {
+          "title": "Remover caracteres invisíveis",
+          "description": "Remove caracteres Unicode invisíveis de largura zero (U+200B, U+200C, U+200D, U+FEFF) que alguns LLM inserem na saída do pós-processamento."
         }
       },
       "prompts": {

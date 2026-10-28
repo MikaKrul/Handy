@@ -515,6 +515,7 @@
           "options": {
             "none": "Yok",
             "minimal": "Sade",
+            "mini": "Mini",
             "live": "Canlı"
           }
         },
@@ -710,6 +711,13 @@
           "title": "Yedek Model API Anahtarı",
           "description": "Yalnızca ikinci deneme için kullanılır. Ana model yukarıdaki API anahtarını kullanmaya devam eder.",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "Çıktı",
+        "zeroWidthFilter": {
+          "title": "Görünmez Karakterleri Kaldır",
+          "description": "Bazı LLM'lerin son işlem çıktısına eklediği görünmez, sıfır genişlikli Unicode karakterlerini (U+200B, U+200C, U+200D, U+FEFF) kaldırır."
         }
       },
       "prompts": {

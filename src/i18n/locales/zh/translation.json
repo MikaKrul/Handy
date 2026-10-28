@@ -515,6 +515,7 @@
           "options": {
             "none": "无",
             "minimal": "精简",
+            "mini": "迷你",
             "live": "实时"
           }
         },
@@ -710,6 +711,13 @@
           "title": "备用模型 API 密钥",
           "description": "仅用于第二次重试。主模型仍使用上面的 API 密钥。",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "输出",
+        "zeroWidthFilter": {
+          "title": "移除不可见字符",
+          "description": "移除某些 LLM 插入到后处理输出中的零宽不可见 Unicode 字符（U+200B、U+200C、U+200D、U+FEFF）。"
         }
       },
       "prompts": {

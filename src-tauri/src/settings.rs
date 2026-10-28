@@ -503,6 +503,10 @@ pub struct AppSettings {
     pub post_process_prompts: Vec<LLMPrompt>,
     #[serde(default)]
     pub post_process_selected_prompt_id: Option<String>,
+    /// Strip invisible Unicode characters (zero-width spaces, BOM) that some
+    /// LLMs insert into post-processing output.
+    #[serde(default = "default_zero_width_filter_enabled")]
+    pub zero_width_filter_enabled: bool,
     #[serde(default)]
     pub mute_while_recording: bool,
     /// Pause whatever is playing (music, video) for the duration of a
@@ -725,6 +729,10 @@ fn default_theme() -> Theme {
 
 fn default_post_process_enabled() -> bool {
     false
+}
+
+fn default_zero_width_filter_enabled() -> bool {
+    true
 }
 
 fn default_app_language() -> String {
@@ -1096,6 +1104,7 @@ pub fn get_default_settings() -> AppSettings {
         post_process_fallback_api_keys: default_post_process_fallback_api_keys(),
         post_process_prompts: default_post_process_prompts(),
         post_process_selected_prompt_id: None,
+        zero_width_filter_enabled: default_zero_width_filter_enabled(),
         mute_while_recording: false,
         pause_media_while_recording: false,
         append_trailing_space: false,

@@ -515,6 +515,7 @@
           "options": {
             "none": "無",
             "minimal": "精簡",
+            "mini": "迷你",
             "live": "即時"
           }
         },
@@ -710,6 +711,13 @@
           "title": "備援模型 API 金鑰",
           "description": "僅用於第二次重試。主模型仍使用上面的 API 金鑰。",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "輸出",
+        "zeroWidthFilter": {
+          "title": "移除隱形字元",
+          "description": "移除某些 LLM 插入到後處理輸出中的零寬度隱形 Unicode 字元（U+200B、U+200C、U+200D、U+FEFF）。"
         }
       },
       "prompts": {

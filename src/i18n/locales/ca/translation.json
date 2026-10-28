@@ -452,6 +452,10 @@
         "average": "Fes la mitjana de tots els canals",
         "channel": "Canal {{n}}"
       },
+      "pauseMediaWhileRecording": {
+        "label": "Posa els mitjans multimèdia en pausa durant l'enregistrament",
+        "description": "Posa en pausa la música o el vídeo durant l'enregistrament i els reprèn després"
+      },
       "audioFeedback": {
         "label": "Avisos sonors",
         "description": "Reprodueix un so quan s'inicia i s'atura l'enregistrament"
@@ -511,6 +515,7 @@
           "options": {
             "none": "Cap",
             "minimal": "Mínima",
+            "mini": "Mini",
             "live": "En directe"
           }
         },
@@ -706,6 +711,13 @@
           "title": "Clau d'API del model alternatiu",
           "description": "Només s'utilitza per al segon intent. El model principal continua amb la clau d'API de dalt.",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "Sortida",
+        "zeroWidthFilter": {
+          "title": "Elimina els caràcters invisibles",
+          "description": "Elimina els caràcters Unicode invisibles d'amplada zero (U+200B, U+200C, U+200D, U+FEFF) que alguns LLM insereixen a la sortida del postprocessament."
         }
       },
       "prompts": {

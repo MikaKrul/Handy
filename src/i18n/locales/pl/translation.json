@@ -515,6 +515,7 @@
           "options": {
             "none": "Brak",
             "minimal": "Minimalna",
+            "mini": "Mini",
             "live": "Na żywo"
           }
         },
@@ -710,6 +711,13 @@
           "title": "Klucz API modelu zapasowego",
           "description": "Używany tylko przy drugiej próbie. Model główny nadal korzysta z klucza API powyżej.",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "Wyjście",
+        "zeroWidthFilter": {
+          "title": "Usuń niewidoczne znaki",
+          "description": "Usuwa niewidoczne znaki Unicode o zerowej szerokości (U+200B, U+200C, U+200D, U+FEFF), które niektóre modele LLM wstawiają do wyjścia przetwarzania końcowego."
         }
       },
       "prompts": {

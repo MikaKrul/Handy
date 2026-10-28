@@ -452,6 +452,10 @@
         "average": "Rata-ratakan semua kanal",
         "channel": "Kanal {{n}}"
       },
+      "pauseMediaWhileRecording": {
+        "label": "Jeda Media Saat Merekam",
+        "description": "Jeda pemutaran musik atau video saat merekam dan lanjutkan setelahnya"
+      },
       "audioFeedback": {
         "label": "Umpan Balik Audio",
         "description": "Putar suara saat perekaman dimulai dan dihentikan"
@@ -511,6 +515,7 @@
           "options": {
             "none": "Tidak Ada",
             "minimal": "Minimal",
+            "mini": "Mini",
             "live": "Waktu Nyata"
           }
         },
@@ -706,6 +711,13 @@
           "title": "Kunci API model cadangan",
           "description": "Hanya dipakai untuk percobaan kedua. Model utama tetap memakai kunci API di atas.",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "Keluaran",
+        "zeroWidthFilter": {
+          "title": "Hapus Karakter Tak Terlihat",
+          "description": "Menghapus karakter Unicode tak terlihat dengan lebar nol (U+200B, U+200C, U+200D, U+FEFF) yang disisipkan sebagian LLM ke keluaran pasiproses."
         }
       },
       "prompts": {

@@ -818,6 +818,29 @@ export const PostProcessingFallback: React.FC = () => {
   );
 };
 
+export const PostProcessingOutput: React.FC = () => {
+  const { t } = useTranslation();
+  const { settings, updateSetting, isUpdating } = useSettings();
+
+  return (
+    <SettingsGroup title={t("settings.postProcessing.output.title")}>
+      <ToggleSwitch
+        checked={settings?.zero_width_filter_enabled ?? true}
+        onChange={(enabled) =>
+          updateSetting("zero_width_filter_enabled", enabled)
+        }
+        isUpdating={isUpdating("zero_width_filter_enabled")}
+        label={t("settings.postProcessing.output.zeroWidthFilter.title")}
+        description={t(
+          "settings.postProcessing.output.zeroWidthFilter.description",
+        )}
+        descriptionMode="tooltip"
+        grouped={true}
+      />
+    </SettingsGroup>
+  );
+};
+
 export const PostProcessingSettingsApi = React.memo(
   PostProcessingSettingsApiComponent,
 );
@@ -846,6 +869,8 @@ export const PostProcessingSettings: React.FC = () => {
       </SettingsGroup>
 
       <PostProcessingFallback />
+
+      <PostProcessingOutput />
 
       <SettingsGroup title={t("settings.postProcessing.prompts.title")}>
         <PostProcessingSettingsPrompts />

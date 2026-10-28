@@ -700,6 +700,7 @@ pub fn run(cli_args: CliArgs) {
             shortcut::change_post_process_fallback_use_separate_key_setting,
             shortcut::change_post_process_fallback_model_setting,
             shortcut::change_post_process_fallback_api_key_setting,
+            shortcut::change_zero_width_filter_enabled_setting,
             shortcut::set_post_process_provider,
             shortcut::fetch_post_process_models,
             shortcut::test_post_process_model,

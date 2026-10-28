@@ -515,6 +515,7 @@
           "options": {
             "none": "Žádné",
             "minimal": "Minimální",
+            "mini": "Mini",
             "live": "Živě"
           }
         },
@@ -710,6 +711,13 @@
           "title": "API klíč záložního modelu",
           "description": "Použije se jen při druhém pokusu. Hlavní model dál používá API klíč výše.",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "Výstup",
+        "zeroWidthFilter": {
+          "title": "Odebrat neviditelné znaky",
+          "description": "Odebere neviditelné znaky Unicode s nulovou šířkou (U+200B, U+200C, U+200D, U+FEFF), které některé LLM vkládají do výstupu následného zpracování."
         }
       },
       "prompts": {
