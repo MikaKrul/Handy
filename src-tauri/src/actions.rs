@@ -144,8 +144,13 @@ impl TranscribeAction {
 /// Field name for structured output JSON schema
 const TRANSCRIPTION_FIELD: &str = "transcription";
 
-/// Strip invisible Unicode characters that some LLMs may insert
-fn strip_invisible_chars(s: &str) -> String {
+/// Strip invisible Unicode characters that some LLMs may insert. Controlled
+/// by the `zero_width_filter_enabled` setting; with the filter off the text
+/// passes through unchanged.
+fn strip_invisible_chars(s: &str, enabled: bool) -> String {
+    if !enabled {
+        return s.to_string();
+    }
     s.replace(['\u{200B}', '\u{200C}', '\u{200D}', '\u{FEFF}'], "")
 }
 
@@ -242,6 +247,7 @@ async fn attempt_post_process(
     prompt: &str,
     custom_words: &[String],
     transcription: &str,
+    strip_invisible: bool,
 ) -> Option<String> {
     // Ask these providers to skip reasoning/thinking — post-processing rarely
     // benefits from it and it adds seconds of latency. llm_client picks the
@@ -281,7 +287,7 @@ async fn attempt_post_process(
                             debug!("Apple Intelligence returned an empty response");
                             None
                         } else {
-                            let result = strip_invisible_chars(&result);
+                            let result = strip_invisible_chars(&result, strip_invisible);
                             debug!(
                                 "Apple Intelligence post-processing succeeded. Output length: {} chars",
                                 result.len()
@@ -335,7 +341,8 @@ async fn attempt_post_process(
                         if let Some(transcription_value) =
                             json.get(TRANSCRIPTION_FIELD).and_then(|t| t.as_str())
                         {
-                            let result = strip_invisible_chars(transcription_value);
+                            let result =
+                                strip_invisible_chars(transcription_value, strip_invisible);
                             debug!(
                                 "Structured output post-processing succeeded for provider '{}'. Output length: {} chars",
                                 provider.id,
@@ -344,7 +351,7 @@ async fn attempt_post_process(
                             return Some(result);
                         } else {
                             error!("Structured output response missing 'transcription' field");
-                            return Some(strip_invisible_chars(content));
+                            return Some(strip_invisible_chars(content, strip_invisible));
                         }
                     }
                     Err(e) => {
@@ -352,7 +359,7 @@ async fn attempt_post_process(
                             "Failed to parse structured output JSON: {}. Returning raw content.",
                             e
                         );
-                        return Some(strip_invisible_chars(content));
+                        return Some(strip_invisible_chars(content, strip_invisible));
                     }
                 }
             }
@@ -384,7 +391,7 @@ async fn attempt_post_process(
     .await
     {
         Ok(Some(content)) => {
-            let content = strip_invisible_chars(strip_think_block(&content));
+            let content = strip_invisible_chars(strip_think_block(&content), strip_invisible);
             debug!(
                 "LLM post-processing succeeded for provider '{}'. Output length: {} chars",
                 provider.id,
@@ -475,6 +482,7 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
         &prompt,
         &settings.custom_words,
         transcription,
+        settings.zero_width_filter_enabled,
     )
     .await
     {
@@ -531,6 +539,7 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
         &prompt,
         &settings.custom_words,
         transcription,
+        settings.zero_width_filter_enabled,
     )
     .await
 }

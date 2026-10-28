@@ -713,6 +713,13 @@
           "placeholder": "sk-..."
         }
       },
+      "output": {
+        "title": "Uitvoer",
+        "zeroWidthFilter": {
+          "title": "Onzichtbare tekens verwijderen",
+          "description": "Verwijder onzichtbare Unicode-tekens met breedte nul (U+200B, U+200C, U+200D, U+FEFF) die sommige LLM's in de nabewerkingsuitvoer achterlaten."
+        }
+      },
       "prompts": {
         "title": "Prompt",
         "selectedPrompt": {

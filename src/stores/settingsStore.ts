@@ -178,6 +178,8 @@ const settingUpdaters: {
     commands.changePostProcessFallbackUseSeparateKeySetting(value as boolean),
   post_process_selected_prompt_id: (value) =>
     commands.setPostProcessSelectedPrompt(value as string),
+  zero_width_filter_enabled: (value) =>
+    commands.changeZeroWidthFilterEnabledSetting(value as boolean),
   mute_while_recording: (value) =>
     commands.changeMuteWhileRecordingSetting(value as boolean),
   pause_media_while_recording: (value) =>

@@ -1368,6 +1368,18 @@ pub fn change_post_process_fallback_enabled_setting(
 
 #[tauri::command]
 #[specta::specta]
+pub fn change_zero_width_filter_enabled_setting(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.zero_width_filter_enabled = enabled;
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn change_post_process_fallback_use_separate_key_setting(
     app: AppHandle,
     enabled: bool,
