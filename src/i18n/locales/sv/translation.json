@@ -515,6 +515,7 @@
           "options": {
             "none": "Ingen",
             "minimal": "Minimal",
+            "mini": "Mini",
             "live": "Live"
           }
         },
@@ -710,6 +711,13 @@
           "title": "API-nyckel för reservmodellen",
           "description": "Används bara för det andra försöket. Huvudmodellen fortsätter använda API-nyckeln ovan.",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "Utdata",
+        "zeroWidthFilter": {
+          "title": "Ta bort osynliga tecken",
+          "description": "Tar bort osynliga Unicode-tecken med nollbredd (U+200B, U+200C, U+200D, U+FEFF) som vissa LLM:er lägger till i utdata från efterbehandlingen."
         }
       },
       "prompts": {

@@ -515,6 +515,7 @@
           "options": {
             "none": "없음",
             "minimal": "간단",
+            "mini": "미니",
             "live": "실시간"
           }
         },
@@ -710,6 +711,13 @@
           "title": "대체 모델 API 키",
           "description": "두 번째 시도에만 사용됩니다. 기본 모델은 위의 API 키를 계속 사용합니다.",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "출력",
+        "zeroWidthFilter": {
+          "title": "보이지 않는 문자 제거",
+          "description": "일부 LLM이 후처리 출력에 삽입하는 너비가 0인 보이지 않는 유니코드 문자(U+200B, U+200C, U+200D, U+FEFF)를 제거합니다."
         }
       },
       "prompts": {

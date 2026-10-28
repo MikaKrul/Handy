@@ -515,6 +515,7 @@
           "options": {
             "none": "Aucune",
             "minimal": "Minimal",
+            "mini": "Mini",
             "live": "Live"
           }
         },
@@ -710,6 +711,13 @@
           "title": "Clé d'API du modèle de secours",
           "description": "Utilisée uniquement pour la seconde tentative. Le modèle principal continue d'utiliser la clé d'API ci-dessus.",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "Sortie",
+        "zeroWidthFilter": {
+          "title": "Supprimer les caractères invisibles",
+          "description": "Supprime les caractères Unicode invisibles de largeur nulle (U+200B, U+200C, U+200D, U+FEFF) que certains LLM insèrent dans la sortie du post-traitement."
         }
       },
       "prompts": {

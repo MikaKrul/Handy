@@ -515,6 +515,7 @@
           "options": {
             "none": "Không có",
             "minimal": "Tối giản",
+            "mini": "Mini",
             "live": "Trực tiếp"
           }
         },
@@ -710,6 +711,13 @@
           "title": "Khóa API của mô hình dự phòng",
           "description": "Chỉ dùng cho lần thử thứ hai. Mô hình chính vẫn dùng khóa API ở trên.",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "Đầu ra",
+        "zeroWidthFilter": {
+          "title": "Xóa ký tự vô hình",
+          "description": "Xóa các ký tự Unicode vô hình có độ rộng bằng không (U+200B, U+200C, U+200D, U+FEFF) mà một số LLM chèn vào đầu ra của bước hậu xử lý."
         }
       },
       "prompts": {

@@ -515,6 +515,7 @@
           "options": {
             "none": "Keine",
             "minimal": "Minimal",
+            "mini": "Mini",
             "live": "Live"
           }
         },
@@ -710,6 +711,13 @@
           "title": "API-Schlüssel für das Ausweichmodell",
           "description": "Wird nur für den zweiten Versuch verwendet. Das primäre Modell nutzt weiterhin den API-Schlüssel oben.",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "Ausgabe",
+        "zeroWidthFilter": {
+          "title": "Unsichtbare Zeichen entfernen",
+          "description": "Entfernt unsichtbare Unicode-Zeichen mit Breite Null (U+200B, U+200C, U+200D, U+FEFF), die einige LLMs in die Ausgabe der Nachbearbeitung einfügen."
         }
       },
       "prompts": {

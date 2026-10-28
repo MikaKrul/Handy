@@ -515,6 +515,7 @@
           "options": {
             "none": "なし",
             "minimal": "ミニマル",
+            "mini": "ミニ",
             "live": "ライブ"
           }
         },
@@ -710,6 +711,13 @@
           "title": "フォールバックモデルのAPIキー",
           "description": "2回目の試行にだけ使われます。主なモデルは上のAPIキーを引き続き使用します。",
           "placeholder": "sk-..."
+        }
+      },
+      "output": {
+        "title": "出力",
+        "zeroWidthFilter": {
+          "title": "不可視文字を除去",
+          "description": "一部のLLMが後処理の出力に挿入する、幅ゼロの不可視Unicode文字（U+200B、U+200C、U+200D、U+FEFF）を除去します。"
         }
       },
       "prompts": {
