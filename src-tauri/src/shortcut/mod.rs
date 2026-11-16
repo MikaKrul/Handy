@@ -200,6 +200,7 @@ pub fn register_stop_shortcut(app: &AppHandle) {
     match settings.keyboard_implementation {
         KeyboardImplementation::Tauri => tauri_impl::register_stop_shortcut(app),
         KeyboardImplementation::HandyKeys => handy_keys::register_stop_shortcut(app),
+        KeyboardImplementation::None => {}
     }
 }
 
@@ -210,6 +211,7 @@ pub fn unregister_stop_shortcut(app: &AppHandle) {
     match settings.keyboard_implementation {
         KeyboardImplementation::Tauri => tauri_impl::unregister_stop_shortcut(app),
         KeyboardImplementation::HandyKeys => handy_keys::unregister_stop_shortcut(app),
+        KeyboardImplementation::None => {}
     }
 }
 
